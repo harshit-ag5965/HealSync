@@ -83,6 +83,21 @@ const getDoctorById = async (req, res) => {
   }
 };
 
+const updateDoctor = async (req, res) => {
+  try {
+    const doctor = await Doctor.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    if (!doctor) return res.status(404).json({ message: "Doctor not found" });
+    res.status(200).json({ message: "Doctor updated", doctor });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
 // Admin: Delete a doctor
 const deleteDoctor = async (req, res) => {
   try {
@@ -100,4 +115,4 @@ const deleteDoctor = async (req, res) => {
   }
 };
 
-module.exports = { addDoctor, getAllDoctors, getDoctorById, deleteDoctor };
+module.exports = { addDoctor, getAllDoctors, getDoctorById, updateDoctor, deleteDoctor };

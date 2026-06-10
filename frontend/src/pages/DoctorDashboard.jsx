@@ -3,6 +3,74 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 
+const DoctorEditForm = ({ doctor, token, onUpdate }) => {
+  const [form, setForm] = useState({
+    name: doctor.name || "",
+    phone: doctor.phone || "",
+    address: doctor.address || "",
+    specialization: doctor.specialization || "",
+    experience: doctor.experience || "",
+    fees: doctor.fees || "",
+  });
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMsg(""); setErr("");
+    try {
+      await axios.put(
+        `http://localhost:5000/api/doctors/${doctor._id}`,
+        form,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setMsg("Profile updated successfully!");
+      onUpdate();
+    } catch (error) {
+      setErr("Failed to update profile");
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex items-center gap-4 mb-6">
+        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-3xl">👨‍⚕️</div>
+        <div>
+          <p className="text-xl font-bold text-gray-700">{doctor.name}</p>
+          <p className="text-sm text-green-600 font-medium">{doctor.specialization}</p>
+        </div>
+      </div>
+
+      {msg && <div className="bg-green-100 text-green-600 px-4 py-2 rounded-lg text-sm">✅ {msg}</div>}
+      {err && <div className="bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm">❌ {err}</div>}
+
+      {[
+        { label: "Full Name", name: "name", type: "text" },
+        { label: "Phone", name: "phone", type: "text" },
+        { label: "Specialization", name: "specialization", type: "text" },
+        { label: "Experience (years)", name: "experience", type: "number" },
+        { label: "Fees (₹)", name: "fees", type: "number" },
+        { label: "Address", name: "address", type: "text" },
+      ].map((field) => (
+        <div key={field.name}>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{field.label}</label>
+          <input
+            type={field.type}
+            value={form[field.name]}
+            onChange={(e) => setForm({ ...form, [field.name]: e.target.value })}
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
+          />
+        </div>
+      ))}
+
+      <button type="submit"
+        className="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition">
+        Save Changes
+      </button>
+    </form>
+  );
+};
+
 const DoctorDashboard = () => {
   const [doctor, setDoctor] = useState(null);
   const [appointments, setAppointments] = useState([]);
@@ -306,40 +374,18 @@ const DoctorDashboard = () => {
         )}
 
         {/* ── PROFILE TAB ── */}
-        {activeTab === "profile" && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-700 mb-6">My Profile</h2>
-            <div className="bg-white rounded-2xl shadow p-6 max-w-lg">
-              {doctor ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-3xl">
-                      👨‍⚕️
-                    </div>
-                    <div>
-                      <p className="text-xl font-bold text-gray-700">{doctor.name}</p>
-                      <p className="text-sm text-green-600 font-medium">{doctor.specialization}</p>
-                    </div>
-                  </div>
-                  {[
-                    { label: "Specialization", value: doctor.specialization },
-                    { label: "Experience", value: doctor.experience ? `${doctor.experience} years` : "N/A" },
-                    { label: "Fees", value: doctor.fees ? `₹${doctor.fees}` : "N/A" },
-                    { label: "Address", value: doctor.address },
-                    { label: "Available", value: doctor.isAvailable ? "Yes" : "No" },
-                  ].map((item) => (
-                    <div key={item.label} className="border-b pb-3">
-                      <p className="text-xs text-gray-400 uppercase">{item.label}</p>
-                      <p className="text-gray-700 font-medium mt-1">{item.value || "Not provided"}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-400 text-center">No doctor profile found.</p>
-              )}
-            </div>
-          </div>
-        )}
+{activeTab === "profile" && (
+  <div>
+    <h2 className="text-2xl font-bold text-gray-700 mb-6">My Profile</h2>
+    <div className="bg-white rounded-2xl shadow p-6 max-w-lg">
+      {doctor ? (
+        <DoctorEditForm doctor={doctor} token={token} onUpdate={fetchData} />
+      ) : (
+        <p className="text-gray-400 text-center">No doctor profile found.</p>
+      )}
+    </div>
+  </div>
+)}
 
       </div>
     </div>

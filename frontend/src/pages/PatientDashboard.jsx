@@ -2,6 +2,86 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
+const ProfileEditForm = ({ patient, token, onUpdate }) => {
+  const [form, setForm] = useState({
+    name: patient.name || "",
+    phone: patient.phone || "",
+    address: patient.address || "",
+    medicalHistory: patient.medicalHistory || "",
+    age: patient.age || "",
+    gender: patient.gender || "",
+  });
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMsg(""); setErr("");
+    try {
+      await axios.put(
+        `http://localhost:5000/api/patients/${patient._id}`,
+        form,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setMsg("Profile updated successfully!");
+      onUpdate();
+    } catch (error) {
+      setErr("Failed to update profile");
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex items-center gap-4 mb-6">
+        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-3xl">👤</div>
+        <div>
+          <p className="text-xl font-bold text-gray-700">{patient.name}</p>
+          <p className="text-sm text-gray-500">Patient</p>
+        </div>
+      </div>
+
+      {msg && <div className="bg-green-100 text-green-600 px-4 py-2 rounded-lg text-sm">✅ {msg}</div>}
+      {err && <div className="bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm">❌ {err}</div>}
+
+      {[
+        { label: "Full Name", name: "name", type: "text" },
+        { label: "Phone", name: "phone", type: "text" },
+        { label: "Age", name: "age", type: "number" },
+        { label: "Address", name: "address", type: "text" },
+        { label: "Medical History", name: "medicalHistory", type: "text" },
+      ].map((field) => (
+        <div key={field.name}>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{field.label}</label>
+          <input
+            type={field.type}
+            value={form[field.name]}
+            onChange={(e) => setForm({ ...form, [field.name]: e.target.value })}
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+      ))}
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+        <select
+          value={form.gender}
+          onChange={(e) => setForm({ ...form, gender: e.target.value })}
+          className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+        >
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <button type="submit"
+        className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition">
+        Save Changes
+      </button>
+    </form>
+  );
+};
+
 const PatientDashboard = () => {
   const [patient, setPatient] = useState(null);
   const [appointments, setAppointments] = useState([]);
@@ -16,6 +96,8 @@ const PatientDashboard = () => {
   });
   const [bookingMessage, setBookingMessage] = useState("");
   const [bookingError, setBookingError] = useState("");
+  const [doctorSearch, setDoctorSearch] = useState("");
+const [specializationFilter, setSpecializationFilter] = useState("");
   const navigate = useNavigate();
 
   const token = localStorage.getItem("token");
@@ -294,156 +376,124 @@ setDoctors(Array.isArray(doctorsRes.data) ? doctorsRes.data : []);
 
         {/* ── BOOK APPOINTMENT TAB ── */}
         {activeTab === "book" && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-700 mb-6">
-              Book Appointment
-            </h2>
-            <div className="bg-white rounded-2xl shadow p-6 max-w-lg">
+  <div>
+    <h2 className="text-2xl font-bold text-gray-700 mb-6">Book Appointment</h2>
+    <div className="bg-white rounded-2xl shadow p-6 max-w-lg">
+      {bookingMessage && <div className="bg-green-100 text-green-600 px-4 py-3 rounded-lg mb-4 text-sm">✅ {bookingMessage}</div>}
+      {bookingError && <div className="bg-red-100 text-red-600 px-4 py-3 rounded-lg mb-4 text-sm">❌ {bookingError}</div>}
+      <form onSubmit={handleBooking} className="space-y-4">
 
-              {bookingMessage && (
-                <div className="bg-green-100 text-green-600 px-4 py-3 rounded-lg mb-4 text-sm">
-                  ✅ {bookingMessage}
-                </div>
-              )}
-              {bookingError && (
-                <div className="bg-red-100 text-red-600 px-4 py-3 rounded-lg mb-4 text-sm">
-                  ❌ {bookingError}
-                </div>
-              )}
+        {/* Search by name */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Search Doctor</label>
+          <input
+            type="text"
+            placeholder="Search by name..."
+            value={doctorSearch}
+            onChange={(e) => setDoctorSearch(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
 
-              <form onSubmit={handleBooking} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Select Doctor
-                  </label>
-                  <select
-                    value={bookingData.doctor}
-                    onChange={(e) =>
-                      setBookingData({ ...bookingData, doctor: e.target.value })
-                    }
-                    required
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  >
-                    <option value="">-- Select a doctor --</option>
-                    {doctors.map((doc) => (
-                      <option key={doc._id} value={doc._id}>
-                        {doc.name} — {doc.specialization}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+        {/* Filter by specialization */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Specialization</label>
+          <select
+            value={specializationFilter}
+            onChange={(e) => setSpecializationFilter(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          >
+            <option value="">-- All Specializations --</option>
+            {[...new Set(doctors.map(d => d.specialization).filter(Boolean))].map(spec => (
+              <option key={spec} value={spec}>{spec}</option>
+            ))}
+          </select>
+        </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    value={bookingData.date}
-                    onChange={(e) =>
-                      setBookingData({ ...bookingData, date: e.target.value })
-                    }
-                    required
-                    min={new Date().toISOString().split("T")[0]}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Time
-                  </label>
-                  <select
-                    value={bookingData.time}
-                    onChange={(e) =>
-                      setBookingData({ ...bookingData, time: e.target.value })
-                    }
-                    required
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  >
-                    <option value="">-- Select time --</option>
-                    {[
-                      "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM",
-                      "11:00 AM", "11:30 AM", "12:00 PM", "02:00 PM",
-                      "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM",
-                    ].map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Notes (optional)
-                  </label>
-                  <textarea
-                    value={bookingData.notes}
-                    onChange={(e) =>
-                      setBookingData({ ...bookingData, notes: e.target.value })
-                    }
-                    placeholder="Describe your symptoms..."
-                    rows={3}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
+        {/* Doctor cards */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Select Doctor</label>
+          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+            {doctors
+              .filter(doc =>
+                doc.name.toLowerCase().includes(doctorSearch.toLowerCase()) &&
+                (specializationFilter === "" || doc.specialization === specializationFilter)
+              )
+              .map(doc => (
+                <div
+                  key={doc._id}
+                  onClick={() => setBookingData({ ...bookingData, doctor: doc._id })}
+                  className={`border rounded-xl px-4 py-3 cursor-pointer transition ${
+                    bookingData.doctor === doc._id
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
+                  }`}
                 >
-                  Book Appointment
-                </button>
-              </form>
-            </div>
+                  <p className="font-semibold text-gray-700 text-sm">{doc.name}</p>
+                  <p className="text-xs text-blue-600">{doc.specialization}</p>
+                  <p className="text-xs text-gray-500">Experience: {doc.experience} yrs · Fees: ₹{doc.fees}</p>
+                </div>
+              ))}
+            {doctors.filter(doc =>
+              doc.name.toLowerCase().includes(doctorSearch.toLowerCase()) &&
+              (specializationFilter === "" || doc.specialization === specializationFilter)
+            ).length === 0 && (
+              <p className="text-gray-400 text-sm text-center py-4">No doctors found.</p>
+            )}
           </div>
-        )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+          <input type="date" value={bookingData.date}
+            onChange={(e) => setBookingData({ ...bookingData, date: e.target.value })}
+            required min={new Date().toISOString().split("T")[0]}
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+          <select value={bookingData.time}
+            onChange={(e) => setBookingData({ ...bookingData, time: e.target.value })}
+            required className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <option value="">-- Select time --</option>
+            {["09:00 AM","09:30 AM","10:00 AM","10:30 AM","11:00 AM","11:30 AM",
+              "12:00 PM","02:00 PM","02:30 PM","03:00 PM","03:30 PM","04:00 PM"].map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+          <textarea value={bookingData.notes}
+            onChange={(e) => setBookingData({ ...bookingData, notes: e.target.value })}
+            placeholder="Describe your symptoms..." rows={3}
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </div>
+
+        <button type="submit"
+          className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition">
+          Book Appointment
+        </button>
+      </form>
+    </div>
+  </div>
+)}
 
         {/* ── PROFILE TAB ── */}
-        {activeTab === "profile" && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-700 mb-6">
-              My Profile
-            </h2>
-            <div className="bg-white rounded-2xl shadow p-6 max-w-lg">
-              {patient ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-3xl">
-                      👤
-                    </div>
-                    <div>
-                      <p className="text-xl font-bold text-gray-700">
-                        {patient.name}
-                      </p>
-                      <p className="text-sm text-gray-500">Patient</p>
-                    </div>
-                  </div>
-
-                  {[
-                    { label: "Age", value: patient.age },
-                    { label: "Gender", value: patient.gender },
-                    { label: "Phone", value: patient.phone },
-                    { label: "Address", value: patient.address },
-                    { label: "Medical History", value: patient.medicalHistory },
-                  ].map((item) => (
-                    <div key={item.label} className="border-b pb-3">
-                      <p className="text-xs text-gray-400 uppercase">
-                        {item.label}
-                      </p>
-                      <p className="text-gray-700 font-medium mt-1">
-                        {item.value || "Not provided"}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-400 text-center">
-                  No patient profile found.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
+{activeTab === "profile" && (
+  <div>
+    <h2 className="text-2xl font-bold text-gray-700 mb-6">My Profile</h2>
+    <div className="bg-white rounded-2xl shadow p-6 max-w-lg">
+      {patient ? (
+        <ProfileEditForm patient={patient} token={token} onUpdate={fetchData} />
+      ) : (
+        <p className="text-gray-400 text-center">No patient profile found.</p>
+      )}
+    </div>
+  </div>
+)}
 
       </div>
     </div>
