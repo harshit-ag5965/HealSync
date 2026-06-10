@@ -23,14 +23,13 @@ const bookAppointment = async (req, res) => {
 const getAllAppointments = async (req, res) => {
   try {
     const appointments = await Appointment.find()
-      .populate("patient", "name phone")
-      .populate("doctor", "name specialization");
-
+      .populate("patient", "name phone age")
+      .populate("doctor", "name specialization fee");
     res.status(200).json(appointments);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
-};
+};  
 
 // Get one appointment by ID
 const getAppointmentById = async (req, res) => {
