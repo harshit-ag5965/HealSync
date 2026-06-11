@@ -253,6 +253,46 @@ const updateAppointment = async (req, res) => {
       }
     }
 
+    // Send email on rescheduled
+if (req.body.date || req.body.time) {
+  const patientDoc = await Patient.findById(appointment.patient._id);
+  const userDoc = await User.findById(patientDoc?.user);
+  if (userDoc?.email) {
+    await sendEmail({
+      to: userDoc.email,
+      subject: "📅 Appointment Rescheduled — HMS Hospital",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+          <div style="background-color: #7c3aed; padding: 20px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 22px;">🏥 HMS Hospital</h1>
+          </div>
+          <div style="padding: 24px;">
+            <h2 style="color: #7c3aed;">Appointment Rescheduled!</h2>
+            <p style="color: #374151;">Hi <strong>${appointment.patient?.name}</strong>,</p>
+            <p style="color: #374151;">Your appointment has been rescheduled. Here are the new details:</p>
+            <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+              <tr style="background: #f5f3ff;">
+                <td style="padding: 10px; font-weight: bold; color: #7c3aed;">Doctor</td>
+                <td style="padding: 10px; color: #374151;">${appointment.doctor?.name}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px; font-weight: bold; color: #7c3aed;">New Date</td>
+                <td style="padding: 10px; color: #374151;">${appointment.date}</td>
+              </tr>
+              <tr style="background: #f5f3ff;">
+                <td style="padding: 10px; font-weight: bold; color: #7c3aed;">New Time</td>
+                <td style="padding: 10px; color: #374151;">${appointment.time}</td>
+              </tr>
+            </table>
+            <p style="color: #6b7280; font-size: 13px;">Please arrive 10 minutes early.</p>
+            <p style="color: #374151;">Thank you for choosing HMS Hospital! 💙</p>
+          </div>
+        </div>
+      `,
+    });
+  }
+}
+
     res.status(200).json({ message: "Appointment updated", appointment });
   } catch (error) {
     res.status(500).json({ message: error.message });

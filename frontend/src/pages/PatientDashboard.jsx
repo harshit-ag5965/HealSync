@@ -85,6 +85,12 @@ const PatientDashboard = () => {
   const [bookingError, setBookingError] = useState("");
   const [doctorSearch, setDoctorSearch] = useState("");
   const [specializationFilter, setSpecializationFilter] = useState("");
+
+  // ✅ NEW: Reschedule states
+  const [reschedulingId, setReschedulingId] = useState(null);
+  const [rescheduleData, setRescheduleData] = useState({ date: "", time: "" });
+  const [rescheduleMsg, setRescheduleMsg] = useState("");
+
   const navigate = useNavigate();
 
   const token = localStorage.getItem("token");
@@ -168,6 +174,96 @@ const PatientDashboard = () => {
     }
   };
 
+
+const handleDownloadPDF = (bill) => {
+  const { jsPDF } = require("jspdf");
+  const doc = new jsPDF();
+
+  doc.setFillColor(37, 99, 235);
+  doc.rect(0, 0, 210, 40, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22);
+  doc.text("HMS Hospital", 105, 18, { align: "center" });
+  doc.setFontSize(12);
+  doc.text("Hospital Management System", 105, 30, { align: "center" });
+
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(18);
+  doc.text("BILL / INVOICE", 105, 55, { align: "center" });
+
+  doc.setFontSize(11);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Bill ID: ${bill._id}`, 20, 70);
+  doc.text(`Date: ${bill.date}`, 20, 80);
+  doc.text(`Status: ${bill.status.toUpperCase()}`, 20, 90);
+
+  doc.setDrawColor(200, 200, 200);
+  doc.line(20, 95, 190, 95);
+
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(12);
+  doc.text("Patient Details", 20, 108);
+  doc.setFontSize(11);
+  doc.setTextColor(80, 80, 80);
+  doc.text(`Name: ${bill.patient?.name || "N/A"}`, 20, 118);
+  doc.text(`Phone: ${bill.patient?.phone || "N/A"}`, 20, 128);
+
+  doc.setFontSize(12);
+  doc.setTextColor(0, 0, 0);
+  doc.text("Doctor Details", 110, 108);
+  doc.setFontSize(11);
+  doc.setTextColor(80, 80, 80);
+  doc.text(`Name: ${bill.doctor?.name || "N/A"}`, 110, 118);
+  doc.text(`Specialization: ${bill.doctor?.specialization || "N/A"}`, 110, 128);
+
+  doc.setDrawColor(200, 200, 200);
+  doc.line(20, 135, 190, 135);
+
+  doc.setFontSize(14);
+  doc.setTextColor(0, 0, 0);
+  doc.text("Amount Details", 20, 148);
+  doc.setFillColor(240, 249, 255);
+  doc.rect(20, 155, 170, 20, "F");
+  doc.setFontSize(13);
+  doc.setTextColor(37, 99, 235);
+  doc.text("Consultation Fee:", 25, 167);
+  doc.setFontSize(16);
+  doc.setTextColor(22, 163, 74);
+  doc.text(`Rs. ${bill.amount}`, 165, 167, { align: "right" });
+
+  doc.setFillColor(37, 99, 235);
+  doc.rect(0, 270, 210, 30, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  doc.text("Thank you for choosing HMS Hospital!", 105, 282, { align: "center" });
+  doc.text("For queries: support@hmshospital.com", 105, 290, { align: "center" });
+
+  doc.save(`HMS_Bill_${bill._id}.pdf`);
+};
+
+// ✅ NEW: Reschedule handler
+
+  const handleReschedule = async (e) => {
+    e.preventDefault();
+    setRescheduleMsg("");
+    try {
+      await axios.put(
+        `http://localhost:5000/api/appointments/${reschedulingId}`,
+        { date: rescheduleData.date, time: rescheduleData.time },
+        config
+      );
+      setRescheduleMsg("✅ Appointment rescheduled successfully!");
+      setTimeout(() => {
+        setReschedulingId(null);
+        setRescheduleData({ date: "", time: "" });
+        setRescheduleMsg("");
+      }, 1500);
+      fetchData();
+    } catch (error) {
+      setRescheduleMsg("❌ Failed to reschedule");
+    }
+  };
+
   if (loading) return (
     <div className="min-h-screen bg-blue-50 flex items-center justify-center">
       <p className="text-blue-600 text-xl font-semibold">Loading...</p>
@@ -201,6 +297,7 @@ const PatientDashboard = () => {
 
       <div className="p-6 max-w-5xl mx-auto">
 
+        {/* ── DASHBOARD TAB ── */}
         {activeTab === "dashboard" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-700 mb-6">Dashboard Overview</h2>
@@ -265,6 +362,7 @@ const PatientDashboard = () => {
           </div>
         )}
 
+        {/* ── APPOINTMENTS TAB ── */}
         {activeTab === "appointments" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-700 mb-6">My Appointments</h2>
@@ -279,25 +377,116 @@ const PatientDashboard = () => {
             ) : (
               <div className="space-y-4">
                 {appointments.map((apt) => (
-                  <div key={apt._id} className="bg-white rounded-2xl shadow p-5 flex justify-between items-center">
-                    <div>
-                      <p className="font-semibold text-gray-700">{apt.doctor?.name || "Unknown"}</p>
-                      <p className="text-sm text-gray-500">{apt.doctor?.specialization}</p>
-                      <p className="text-sm text-gray-500 mt-1">📅 {apt.date} at ⏰ {apt.time}</p>
-                      {apt.notes && <p className="text-sm text-gray-400 mt-1">📝 {apt.notes}</p>}
+                  <div key={apt._id} className="bg-white rounded-2xl shadow p-5">
+
+                    {/* Appointment Info */}
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-semibold text-gray-700">{apt.doctor?.name || "Unknown"}</p>
+                        <p className="text-sm text-gray-500">{apt.doctor?.specialization}</p>
+                        <p className="text-sm text-gray-500 mt-1">📅 {apt.date} at ⏰ {apt.time}</p>
+                        {apt.notes && <p className="text-sm text-gray-400 mt-1">📝 {apt.notes}</p>}
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          apt.status === "pending" ? "bg-yellow-100 text-yellow-600" :
+                          apt.status === "confirmed" ? "bg-blue-100 text-blue-600" :
+                          apt.status === "completed" ? "bg-green-100 text-green-600" :
+                          "bg-red-100 text-red-600"
+                        }`}>{apt.status}</span>
+
+                        {/* ✅ Reschedule + Cancel buttons for pending only */}
+                        {apt.status === "pending" && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setReschedulingId(apt._id);
+                                setRescheduleData({ date: apt.date, time: apt.time });
+                                setRescheduleMsg("");
+                              }}
+                              className="bg-purple-100 text-purple-600 text-xs px-3 py-1 rounded-lg hover:bg-purple-200 font-semibold"
+                            >
+                              Reschedule
+                            </button>
+                            <button
+                              onClick={() => handleCancelAppointment(apt._id)}
+                              className="bg-red-100 text-red-500 text-xs px-3 py-1 rounded-lg hover:bg-red-200 font-semibold"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        apt.status === "pending" ? "bg-yellow-100 text-yellow-600" :
-                        apt.status === "confirmed" ? "bg-blue-100 text-blue-600" :
-                        apt.status === "completed" ? "bg-green-100 text-green-600" :
-                        "bg-red-100 text-red-600"
-                      }`}>{apt.status}</span>
-                      {apt.status === "pending" && (
-                        <button onClick={() => handleCancelAppointment(apt._id)}
-                          className="text-red-500 text-xs hover:underline">Cancel</button>
-                      )}
-                    </div>
+
+                    {/* ✅ Reschedule Form — shows inline */}
+                    {reschedulingId === apt._id && (
+                      <div className="mt-4 border-t pt-4 bg-purple-50 rounded-xl p-4">
+                        <h4 className="text-sm font-semibold text-purple-600 mb-3">
+                          📅 Reschedule Appointment
+                        </h4>
+                        {rescheduleMsg && (
+                          <div className={`px-4 py-2 rounded-lg text-sm mb-3 ${
+                            rescheduleMsg.includes("✅")
+                              ? "bg-green-100 text-green-600"
+                              : "bg-red-100 text-red-600"
+                          }`}>
+                            {rescheduleMsg}
+                          </div>
+                        )}
+                        <form onSubmit={handleReschedule} className="space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                New Date
+                              </label>
+                              <input
+                                type="date"
+                                value={rescheduleData.date}
+                                onChange={(e) =>
+                                  setRescheduleData({ ...rescheduleData, date: e.target.value })
+                                }
+                                min={new Date().toISOString().split("T")[0]}
+                                required
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                New Time
+                              </label>
+                              <select
+                                value={rescheduleData.time}
+                                onChange={(e) =>
+                                  setRescheduleData({ ...rescheduleData, time: e.target.value })
+                                }
+                                required
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                              >
+                                <option value="">-- Select time --</option>
+                                {["09:00 AM","09:30 AM","10:00 AM","10:30 AM",
+                                  "11:00 AM","11:30 AM","12:00 PM","02:00 PM",
+                                  "02:30 PM","03:00 PM","03:30 PM","04:00 PM"].map((t) => (
+                                  <option key={t} value={t}>{t}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button type="submit"
+                              className="bg-purple-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-purple-700 font-semibold">
+                              Confirm Reschedule
+                            </button>
+                            <button type="button"
+                              onClick={() => { setReschedulingId(null); setRescheduleMsg(""); }}
+                              className="bg-gray-200 text-gray-600 text-sm px-4 py-2 rounded-lg hover:bg-gray-300 font-semibold">
+                              Close
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    )}
+
                   </div>
                 ))}
               </div>
@@ -305,6 +494,7 @@ const PatientDashboard = () => {
           </div>
         )}
 
+        {/* ── BOOK APPOINTMENT TAB ── */}
         {activeTab === "book" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-700 mb-6">Book Appointment</h2>
@@ -391,46 +581,53 @@ const PatientDashboard = () => {
           </div>
         )}
 
-        {activeTab === "bills" && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-700 mb-6">My Bills</h2>
-            {bills.length === 0 ? (
-              <div className="bg-white rounded-2xl shadow p-6 text-center">
-                <p className="text-gray-400">No bills yet. Bills are generated when appointments are completed.</p>
+        {/* ── BILLS TAB ── */}
+{activeTab === "bills" && (
+  <div>
+    <h2 className="text-2xl font-bold text-gray-700 mb-6">My Bills</h2>
+    {bills.length === 0 ? (
+      <div className="bg-white rounded-2xl shadow p-6 text-center">
+        <p className="text-gray-400">No bills yet. Bills are generated when appointments are completed.</p>
+      </div>
+    ) : (
+      <div className="space-y-4">
+        {bills.map((bill) => (
+          <div key={bill._id} className="bg-white rounded-2xl shadow p-5 flex justify-between items-center">
+            <div>
+              <p className="font-semibold text-gray-700">{bill.doctor?.name}</p>
+              <p className="text-sm text-blue-600">{bill.doctor?.specialization}</p>
+              <p className="text-sm text-gray-500 mt-1">📅 {bill.date}</p>
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              <p className="text-2xl font-bold text-blue-600">₹{bill.amount}</p>
+              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                bill.status === "paid"
+                  ? "bg-green-100 text-green-600"
+                  : "bg-red-100 text-red-600"
+              }`}>
+                {bill.status}
+              </span>
+              <div className="flex gap-2">
+                {bill.status === "unpaid" && (
+                  <button onClick={() => handleMarkPaid(bill._id)}
+                    className="bg-green-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-green-600">
+                    Mark as Paid
+                  </button>
+                )}
+                <button onClick={() => handleDownloadPDF(bill)}
+                  className="bg-blue-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-blue-600">
+                  📄 Download PDF
+                </button>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {bills.map((bill) => (
-                  <div key={bill._id} className="bg-white rounded-2xl shadow p-5 flex justify-between items-center">
-                    <div>
-                      <p className="font-semibold text-gray-700">{bill.doctor?.name}</p>
-                      <p className="text-sm text-blue-600">{bill.doctor?.specialization}</p>
-                      <p className="text-sm text-gray-500 mt-1">📅 {bill.date}</p>
-                      <p className="text-sm text-gray-500">⏰ {bill.appointment?.time}</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <p className="text-2xl font-bold text-blue-600">₹{bill.amount}</p>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        bill.status === "paid"
-                          ? "bg-green-100 text-green-600"
-                          : "bg-red-100 text-red-600"
-                      }`}>
-                        {bill.status}
-                      </span>
-                      {bill.status === "unpaid" && (
-                        <button onClick={() => handleMarkPaid(bill._id)}
-                          className="bg-green-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-green-600">
-                          Mark as Paid
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            </div>
           </div>
-        )}
+        ))}
+      </div>
+    )}
+  </div>
+)}
 
+        {/* ── PROFILE TAB ── */}
         {activeTab === "profile" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-700 mb-6">My Profile</h2>
