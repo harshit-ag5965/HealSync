@@ -40,10 +40,8 @@ const DoctorEditForm = ({ doctor, token, onUpdate }) => {
           <p className="text-sm text-green-600 font-medium">{doctor.specialization}</p>
         </div>
       </div>
-
       {msg && <div className="bg-green-100 text-green-600 px-4 py-2 rounded-lg text-sm">✅ {msg}</div>}
       {err && <div className="bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm">❌ {err}</div>}
-
       {[
         { label: "Full Name", name: "name", type: "text" },
         { label: "Phone", name: "phone", type: "text" },
@@ -62,7 +60,6 @@ const DoctorEditForm = ({ doctor, token, onUpdate }) => {
           />
         </div>
       ))}
-
       <button type="submit"
         className="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition">
         Save Changes
@@ -74,6 +71,7 @@ const DoctorEditForm = ({ doctor, token, onUpdate }) => {
 const DoctorDashboard = () => {
   const [doctor, setDoctor] = useState(null);
   const [appointments, setAppointments] = useState([]);
+  const [earnings, setEarnings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
   const navigate = useNavigate();
@@ -82,10 +80,7 @@ const DoctorDashboard = () => {
   const config = { headers: { Authorization: `Bearer ${token}` } };
 
   useEffect(() => {
-    if (!token) {
-      navigate("/login");
-      return;
-    }
+    if (!token) { navigate("/login"); return; }
     fetchData();
   }, []);
 
@@ -93,30 +88,25 @@ const DoctorDashboard = () => {
     try {
       const decoded = jwtDecode(token);
       const loggedInUserId = decoded.id;
-      console.log("Logged in user ID from token:", loggedInUserId);
 
-      const [doctorsRes, appointmentsRes] = await Promise.all([
+      const [doctorsRes, appointmentsRes, earningsRes] = await Promise.all([
         axios.get("http://localhost:5000/api/doctors", config),
         axios.get("http://localhost:5000/api/appointments", config),
+        axios.get("http://localhost:5000/api/bills/doctor/earnings", config),
       ]);
 
       const allDoctors = Array.isArray(doctorsRes.data) ? doctorsRes.data : [];
-      console.log("All doctors from API:", allDoctors);
-      console.log("Each doctor's userId:", allDoctors.map(d => ({ name: d.name, userId: d.userId })));
-
       const myDoctor = allDoctors.find(
-  (doc) => doc.userId?._id?.toString() === loggedInUserId
-);
-      console.log("Matched doctor:", myDoctor);
+        (doc) => doc.userId?._id?.toString() === loggedInUserId
+      );
       setDoctor(myDoctor);
 
-      const allAppointments = Array.isArray(appointmentsRes.data)
-        ? appointmentsRes.data
-        : [];
+      const allAppointments = Array.isArray(appointmentsRes.data) ? appointmentsRes.data : [];
       const myAppointments = allAppointments.filter(
         (apt) => apt.doctor?._id?.toString() === myDoctor?._id?.toString()
       );
       setAppointments(myAppointments);
+      setEarnings(earningsRes.data);
 
     } catch (error) {
       console.error("fetchData error:", error);
@@ -126,11 +116,7 @@ const DoctorDashboard = () => {
 
   const handleUpdateStatus = async (id, status) => {
     try {
-      await axios.put(
-        `http://localhost:5000/api/appointments/${id}`,
-        { status },
-        config
-      );
+      await axios.put(`http://localhost:5000/api/appointments/${id}`, { status }, config);
       fetchData();
     } catch (error) {
       console.error(error);
@@ -153,45 +139,32 @@ const DoctorDashboard = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-blue-50 flex items-center justify-center">
-        <p className="text-blue-600 text-xl font-semibold">Loading...</p>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="min-h-screen bg-blue-50 flex items-center justify-center">
+      <p className="text-blue-600 text-xl font-semibold">Loading...</p>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-100">
 
-      {/* Navbar */}
       <nav className="bg-green-700 text-white px-6 py-4 flex justify-between items-center shadow-md">
         <h1 className="text-xl font-bold">🏥 HMS — Doctor Portal</h1>
         <div className="flex items-center gap-4">
-          <span className="text-sm">
-            Welcome, {doctor?.name || "Doctor"}!
-          </span>
-          <button
-            onClick={handleLogout}
-            className="bg-white text-green-700 px-4 py-1 rounded-lg text-sm font-semibold hover:bg-green-100 transition"
-          >
+          <span className="text-sm">Welcome, {doctor?.name || "Doctor"}!</span>
+          <button onClick={handleLogout}
+            className="bg-white text-green-700 px-4 py-1 rounded-lg text-sm font-semibold hover:bg-green-100 transition">
             Logout
           </button>
         </div>
       </nav>
 
-      {/* Tabs */}
       <div className="bg-white shadow-sm px-6 py-2 flex gap-4">
-        {["dashboard", "appointments", "patients", "profile"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+        {["dashboard", "appointments", "patients", "earnings", "profile"].map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 rounded-lg text-sm font-semibold capitalize transition ${
-              activeTab === tab
-                ? "bg-green-600 text-white"
-                : "text-gray-600 hover:bg-gray-100"
-            }`}
-          >
+              activeTab === tab ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"
+            }`}>
             {tab}
           </button>
         ))}
@@ -202,9 +175,7 @@ const DoctorDashboard = () => {
         {/* ── DASHBOARD TAB ── */}
         {activeTab === "dashboard" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-700 mb-6">
-              Dashboard Overview
-            </h2>
+            <h2 className="text-2xl font-bold text-gray-700 mb-6">Dashboard Overview</h2>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="bg-white rounded-2xl shadow p-6 border-l-4 border-blue-500">
                 <p className="text-gray-500 text-sm">Total Appointments</p>
@@ -229,11 +200,10 @@ const DoctorDashboard = () => {
                 </p>
               </div>
             </div>
-
             <div className="bg-white rounded-2xl shadow p-6 mt-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">Today's Appointments</h3>
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">Recent Appointments</h3>
               {appointments.length === 0 ? (
-                <p className="text-gray-400 text-sm">No appointments today.</p>
+                <p className="text-gray-400 text-sm">No appointments yet.</p>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
@@ -258,20 +228,12 @@ const DoctorDashboard = () => {
                         </td>
                         <td className="py-2">
                           {apt.status === "pending" && (
-                            <button
-                              onClick={() => handleUpdateStatus(apt._id, "confirmed")}
-                              className="text-blue-500 text-xs hover:underline mr-2"
-                            >
-                              Confirm
-                            </button>
+                            <button onClick={() => handleUpdateStatus(apt._id, "confirmed")}
+                              className="text-blue-500 text-xs hover:underline mr-2">Confirm</button>
                           )}
                           {apt.status === "confirmed" && (
-                            <button
-                              onClick={() => handleUpdateStatus(apt._id, "completed")}
-                              className="text-green-500 text-xs hover:underline"
-                            >
-                              Complete
-                            </button>
+                            <button onClick={() => handleUpdateStatus(apt._id, "completed")}
+                              className="text-green-500 text-xs hover:underline">Complete</button>
                           )}
                         </td>
                       </tr>
@@ -306,26 +268,20 @@ const DoctorDashboard = () => {
                       </span>
                       <div className="flex gap-2">
                         {apt.status === "pending" && (
-                          <button
-                            onClick={() => handleUpdateStatus(apt._id, "confirmed")}
-                            className="bg-blue-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-blue-600"
-                          >
+                          <button onClick={() => handleUpdateStatus(apt._id, "confirmed")}
+                            className="bg-blue-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-blue-600">
                             Confirm
                           </button>
                         )}
                         {apt.status === "confirmed" && (
-                          <button
-                            onClick={() => handleUpdateStatus(apt._id, "completed")}
-                            className="bg-green-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-green-600"
-                          >
+                          <button onClick={() => handleUpdateStatus(apt._id, "completed")}
+                            className="bg-green-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-green-600">
                             Complete
                           </button>
                         )}
                         {(apt.status === "pending" || apt.status === "confirmed") && (
-                          <button
-                            onClick={() => handleUpdateStatus(apt._id, "cancelled")}
-                            className="bg-red-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-red-600"
-                          >
+                          <button onClick={() => handleUpdateStatus(apt._id, "cancelled")}
+                            className="bg-red-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-red-600">
                             Cancel
                           </button>
                         )}
@@ -353,9 +309,7 @@ const DoctorDashboard = () => {
                   .map((patient) => (
                     <div key={patient._id} className="bg-white rounded-2xl shadow p-5">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-2xl">
-                          👤
-                        </div>
+                        <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-2xl">👤</div>
                         <div>
                           <p className="font-semibold text-gray-700">{patient.name}</p>
                           <p className="text-sm text-gray-500">{patient.phone}</p>
@@ -373,19 +327,90 @@ const DoctorDashboard = () => {
           </div>
         )}
 
+        {/* ── EARNINGS TAB ── */}
+        {activeTab === "earnings" && (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-700 mb-6">My Earnings</h2>
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+              <div className="bg-white rounded-2xl shadow p-6 border-l-4 border-green-500">
+                <p className="text-gray-500 text-sm">Total Earned</p>
+                <p className="text-4xl font-bold text-green-600 mt-2">₹{earnings?.totalEarnings || 0}</p>
+              </div>
+              <div className="bg-white rounded-2xl shadow p-6 border-l-4 border-blue-500">
+                <p className="text-gray-500 text-sm">Total Bills</p>
+                <p className="text-4xl font-bold text-blue-600 mt-2">{earnings?.totalBills || 0}</p>
+              </div>
+              <div className="bg-white rounded-2xl shadow p-6 border-l-4 border-yellow-500">
+                <p className="text-gray-500 text-sm">Unpaid</p>
+                <p className="text-4xl font-bold text-yellow-500 mt-2">{earnings?.unpaidBills || 0}</p>
+              </div>
+              <div className="bg-white rounded-2xl shadow p-6 border-l-4 border-purple-500">
+                <p className="text-gray-500 text-sm">Paid</p>
+                <p className="text-4xl font-bold text-purple-600 mt-2">{earnings?.paidBills || 0}</p>
+              </div>
+            </div>
+
+            {/* Monthly Breakdown */}
+            {earnings?.monthly?.length > 0 && (
+              <div className="bg-white rounded-2xl shadow p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">Monthly Earnings</h3>
+                <div className="space-y-3">
+                  {earnings.monthly.map((m) => (
+                    <div key={m.month} className="flex justify-between items-center border-b pb-2">
+                      <p className="text-gray-600 font-medium">{m.month}</p>
+                      <p className="text-green-600 font-bold">₹{m.amount}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Bills List */}
+            <div className="bg-white rounded-2xl shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">All Bills</h3>
+              {earnings?.bills?.length === 0 ? (
+                <p className="text-gray-400 text-sm">No bills yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {earnings?.bills?.map((bill) => (
+                    <div key={bill._id} className="flex justify-between items-center border-b pb-3">
+                      <div>
+                        <p className="font-semibold text-gray-700">{bill.patient?.name || "Patient"}</p>
+                        <p className="text-sm text-gray-500">📅 {bill.date}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <p className="font-bold text-gray-700">₹{bill.amount}</p>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          bill.status === "paid"
+                            ? "bg-green-100 text-green-600"
+                            : "bg-red-100 text-red-600"
+                        }`}>
+                          {bill.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── PROFILE TAB ── */}
-{activeTab === "profile" && (
-  <div>
-    <h2 className="text-2xl font-bold text-gray-700 mb-6">My Profile</h2>
-    <div className="bg-white rounded-2xl shadow p-6 max-w-lg">
-      {doctor ? (
-        <DoctorEditForm doctor={doctor} token={token} onUpdate={fetchData} />
-      ) : (
-        <p className="text-gray-400 text-center">No doctor profile found.</p>
-      )}
-    </div>
-  </div>
-)}
+        {activeTab === "profile" && (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-700 mb-6">My Profile</h2>
+            <div className="bg-white rounded-2xl shadow p-6 max-w-lg">
+              {doctor ? (
+                <DoctorEditForm doctor={doctor} token={token} onUpdate={fetchData} />
+              ) : (
+                <p className="text-gray-400 text-center">No doctor profile found.</p>
+              )}
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

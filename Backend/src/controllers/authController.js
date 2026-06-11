@@ -29,6 +29,20 @@ const register = async (req, res) => {
       phone: phone || "",
     });
 
+    // Auto-create patient profile on registration
+if (role === "patient" || !role) {
+  const Patient = require("../models/Patient");
+  await Patient.create({
+    name,
+    user: user._id,
+    phone: phone || "0000000000",
+    age: 1,
+    gender: "male",
+    address: "",
+    medicalHistory: "None",
+  });
+}
+
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,

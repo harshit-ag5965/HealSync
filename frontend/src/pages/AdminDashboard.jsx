@@ -38,10 +38,8 @@ const DoctorEditModal = ({ doctor, token, onUpdate, onClose }) => {
           <h3 className="text-lg font-bold text-gray-700">Edit Doctor</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
         </div>
-
         {msg && <div className="bg-green-100 text-green-600 px-4 py-2 rounded-lg text-sm mb-3">✅ {msg}</div>}
         {err && <div className="bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm mb-3">❌ {err}</div>}
-
         <form onSubmit={handleSubmit} className="space-y-4">
           {[
             { label: "Full Name", name: "name", type: "text" },
@@ -148,6 +146,16 @@ const AdminDashboard = () => {
     if (!window.confirm("Are you sure you want to delete this patient?")) return;
     try {
       await axios.delete(`http://localhost:5000/api/patients/${id}`, config);
+      fetchData();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  // ✅ NEW: Update appointment status
+  const handleUpdateStatus = async (id, status) => {
+    try {
+      await axios.put(`http://localhost:5000/api/appointments/${id}`, { status }, config);
       fetchData();
     } catch (error) {
       console.error(error);
@@ -317,6 +325,7 @@ const AdminDashboard = () => {
           </div>
         )}
 
+        {/* ✅ UPDATED: Appointments tab with status management */}
         {activeTab === "appointments" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-700 mb-6">All Appointments ({appointments.length})</h2>
@@ -329,9 +338,31 @@ const AdminDashboard = () => {
                     <p className="text-sm text-gray-500 mt-1">📅 {apt.date} at ⏰ {apt.time}</p>
                     {apt.notes && <p className="text-sm text-gray-400 mt-1">📝 {apt.notes}</p>}
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(apt.status)}`}>
-                    {apt.status}
-                  </span>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(apt.status)}`}>
+                      {apt.status}
+                    </span>
+                    <div className="flex gap-2">
+                      {apt.status === "pending" && (
+                        <button onClick={() => handleUpdateStatus(apt._id, "confirmed")}
+                          className="bg-blue-100 text-blue-600 px-3 py-1 rounded-lg text-xs font-semibold hover:bg-blue-200">
+                          Confirm
+                        </button>
+                      )}
+                      {apt.status === "confirmed" && (
+                        <button onClick={() => handleUpdateStatus(apt._id, "completed")}
+                          className="bg-green-100 text-green-600 px-3 py-1 rounded-lg text-xs font-semibold hover:bg-green-200">
+                          Complete
+                        </button>
+                      )}
+                      {(apt.status === "pending" || apt.status === "confirmed") && (
+                        <button onClick={() => handleUpdateStatus(apt._id, "cancelled")}
+                          className="bg-red-100 text-red-600 px-3 py-1 rounded-lg text-xs font-semibold hover:bg-red-200">
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

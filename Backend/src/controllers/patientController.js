@@ -31,6 +31,17 @@ const getAllPatients = async (req, res) => {
   }
 };
 
+// Get logged-in patient's own profile
+const getMyPatientProfile = async (req, res) => {
+  try {
+    const patient = await Patient.findOne({ user: req.user.id });
+    if (!patient) return res.status(404).json({ message: "Patient profile not found" });
+    res.status(200).json(patient);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Get single patient by ID
 const getPatientById = async (req, res) => {
   try {
@@ -71,6 +82,7 @@ const deletePatient = async (req, res) => {
 module.exports = {
   createPatient,
   getAllPatients,
+  getMyPatientProfile,
   getPatientById,
   updatePatient,
   deletePatient,

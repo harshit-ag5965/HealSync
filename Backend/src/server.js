@@ -6,6 +6,7 @@ const authRoutes = require("./routes/authRoutes");
 const doctorRoutes = require("./routes/doctorRoutes");
 const patientRoutes = require("./routes/patientRoutes");
 const appointmentRoutes = require("./routes/appointmentRoutes"); // ← ADDED
+const billRoutes = require("./routes/billRoutes");
 
 dotenv.config();
 connectDB();
@@ -23,6 +24,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/doctors", doctorRoutes);
 app.use("/api/patients", patientRoutes);
 app.use("/api/appointments", appointmentRoutes); // ← ADDED
+app.use("/api/bills", billRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
