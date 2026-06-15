@@ -4,6 +4,15 @@ const User = require("../models/User");
 const sendEmail = require("../utils/sendEmail");
 const Bill = require("../models/Bill");
 const Doctor = require("../models/Doctor");
+const Notification = require("../models/Notification");
+
+// Helper to notify all admins
+const notifyAdmins = async (message, type) => {
+  const admins = await User.find({ role: "admin" });
+  for (const admin of admins) {
+    await Notification.create({ user: admin._id, message, type });
+  }
+};
 
 // Book a new appointment
 const bookAppointment = async (req, res) => {
@@ -20,6 +29,31 @@ const bookAppointment = async (req, res) => {
 
     const patientDoc = await Patient.findById(patient);
     const userDoc = await User.findById(patientDoc?.user);
+
+    // Notify patient
+    if (userDoc) {
+      await Notification.create({
+        user: userDoc._id,
+        message: `Your appointment with ${populated.doctor?.name} on ${date} at ${time} has been booked.`,
+        type: "booked",
+      });
+    }
+
+    // Notify doctor
+    const doctorDoc = await Doctor.findById(doctor);
+    if (doctorDoc?.userId) {
+      await Notification.create({
+        user: doctorDoc.userId,
+        message: `New appointment booked by ${populated.patient?.name} on ${date} at ${time}.`,
+        type: "booked",
+      });
+    }
+
+    // Notify admins
+    await notifyAdmins(
+      `New appointment booked — Patient: ${populated.patient?.name}, Doctor: ${populated.doctor?.name}, Date: ${date}.`,
+      "booked"
+    );
 
     if (userDoc?.email) {
       await sendEmail({
@@ -108,10 +142,34 @@ const updateAppointment = async (req, res) => {
     if (!appointment)
       return res.status(404).json({ message: "Appointment not found" });
 
-    // Send email on confirmed
+    const patientDoc = await Patient.findById(appointment.patient._id);
+    const userDoc = await User.findById(patientDoc?.user);
+    const doctorDoc = await Doctor.findOne({ _id: appointment.doctor._id });
+
+    // ── CONFIRMED ──
     if (req.body.status === "confirmed") {
-      const patientDoc = await Patient.findById(appointment.patient._id);
-      const userDoc = await User.findById(patientDoc?.user);
+      // Notify patient
+      if (userDoc) {
+        await Notification.create({
+          user: userDoc._id,
+          message: `Your appointment with ${appointment.doctor?.name} on ${appointment.date} at ${appointment.time} has been confirmed.`,
+          type: "confirmed",
+        });
+      }
+      // Notify doctor
+      if (doctorDoc?.userId) {
+        await Notification.create({
+          user: doctorDoc.userId,
+          message: `You confirmed the appointment with ${appointment.patient?.name} on ${appointment.date} at ${appointment.time}.`,
+          type: "confirmed",
+        });
+      }
+      // Notify admins
+      await notifyAdmins(
+        `Appointment confirmed — Patient: ${appointment.patient?.name}, Doctor: ${appointment.doctor?.name}, Date: ${appointment.date}.`,
+        "confirmed"
+      );
+
       if (userDoc?.email) {
         await sendEmail({
           to: userDoc.email,
@@ -152,10 +210,30 @@ const updateAppointment = async (req, res) => {
       }
     }
 
-    // Send email on cancelled
+    // ── CANCELLED ──
     if (req.body.status === "cancelled") {
-      const patientDoc = await Patient.findById(appointment.patient._id);
-      const userDoc = await User.findById(patientDoc?.user);
+      // Notify patient
+      if (userDoc) {
+        await Notification.create({
+          user: userDoc._id,
+          message: `Your appointment with ${appointment.doctor?.name} on ${appointment.date} has been cancelled.`,
+          type: "cancelled",
+        });
+      }
+      // Notify doctor
+      if (doctorDoc?.userId) {
+        await Notification.create({
+          user: doctorDoc.userId,
+          message: `Appointment with ${appointment.patient?.name} on ${appointment.date} has been cancelled.`,
+          type: "cancelled",
+        });
+      }
+      // Notify admins
+      await notifyAdmins(
+        `Appointment cancelled — Patient: ${appointment.patient?.name}, Doctor: ${appointment.doctor?.name}, Date: ${appointment.date}.`,
+        "cancelled"
+      );
+
       if (userDoc?.email) {
         await sendEmail({
           to: userDoc.email,
@@ -196,11 +274,9 @@ const updateAppointment = async (req, res) => {
       }
     }
 
-    // Send email + generate bill on completed (email only sent once with bill)
+    // ── COMPLETED ──
     if (req.body.status === "completed") {
-      const patientDoc = await Patient.findById(appointment.patient._id);
-      const userDoc = await User.findById(patientDoc?.user);
-      const doctorDoc = await Doctor.findById(appointment.doctor._id);
+      const doctorFeeDoc = await Doctor.findById(appointment.doctor._id);
       const existingBill = await Bill.findOne({ appointment: req.params.id });
 
       if (!existingBill) {
@@ -208,9 +284,31 @@ const updateAppointment = async (req, res) => {
           appointment: req.params.id,
           patient: appointment.patient._id,
           doctor: appointment.doctor._id,
-          amount: doctorDoc?.fees || 0,
+          amount: doctorFeeDoc?.fees || 0,
           date: appointment.date,
         });
+
+        // Notify patient
+        if (userDoc) {
+          await Notification.create({
+            user: userDoc._id,
+            message: `Your appointment with ${appointment.doctor?.name} on ${appointment.date} is completed. Bill of ₹${doctorFeeDoc?.fees || 0} generated.`,
+            type: "completed",
+          });
+        }
+        // Notify doctor
+        if (doctorDoc?.userId) {
+          await Notification.create({
+            user: doctorDoc.userId,
+            message: `Appointment with ${appointment.patient?.name} on ${appointment.date} marked as completed. Bill of ₹${doctorFeeDoc?.fees || 0} generated.`,
+            type: "completed",
+          });
+        }
+        // Notify admins
+        await notifyAdmins(
+          `Appointment completed — Patient: ${appointment.patient?.name}, Doctor: ${appointment.doctor?.name}, Bill: ₹${doctorFeeDoc?.fees || 0}.`,
+          "completed"
+        );
 
         if (userDoc?.email) {
           await sendEmail({
@@ -224,7 +322,7 @@ const updateAppointment = async (req, res) => {
                 <div style="padding: 24px;">
                   <h2 style="color: #16a34a;">Appointment Completed!</h2>
                   <p style="color: #374151;">Hi <strong>${appointment.patient?.name}</strong>,</p>
-                  <p style="color: #374151;">Your appointment is complete. A bill of <strong>₹${doctorDoc?.fees || 0}</strong> has been generated.</p>
+                  <p style="color: #374151;">Your appointment is complete. A bill of <strong>₹${doctorFeeDoc?.fees || 0}</strong> has been generated.</p>
                   <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
                     <tr style="background: #f0fdf4;">
                       <td style="padding: 10px; font-weight: bold; color: #16a34a;">Doctor</td>
@@ -240,7 +338,7 @@ const updateAppointment = async (req, res) => {
                     </tr>
                     <tr>
                       <td style="padding: 10px; font-weight: bold; color: #16a34a;">Amount Due</td>
-                      <td style="padding: 10px; color: #374151; font-weight: bold;">₹${doctorDoc?.fees || 0}</td>
+                      <td style="padding: 10px; color: #374151; font-weight: bold;">₹${doctorFeeDoc?.fees || 0}</td>
                     </tr>
                   </table>
                   <p style="color: #6b7280; font-size: 13px;">Please check your Bills section to view and pay your invoice.</p>
@@ -253,45 +351,60 @@ const updateAppointment = async (req, res) => {
       }
     }
 
-    // Send email on rescheduled
-if (req.body.date || req.body.time) {
-  const patientDoc = await Patient.findById(appointment.patient._id);
-  const userDoc = await User.findById(patientDoc?.user);
-  if (userDoc?.email) {
-    await sendEmail({
-      to: userDoc.email,
-      subject: "📅 Appointment Rescheduled — HMS Hospital",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
-          <div style="background-color: #7c3aed; padding: 20px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 22px;">🏥 HMS Hospital</h1>
-          </div>
-          <div style="padding: 24px;">
-            <h2 style="color: #7c3aed;">Appointment Rescheduled!</h2>
-            <p style="color: #374151;">Hi <strong>${appointment.patient?.name}</strong>,</p>
-            <p style="color: #374151;">Your appointment has been rescheduled. Here are the new details:</p>
-            <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-              <tr style="background: #f5f3ff;">
-                <td style="padding: 10px; font-weight: bold; color: #7c3aed;">Doctor</td>
-                <td style="padding: 10px; color: #374151;">${appointment.doctor?.name}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px; font-weight: bold; color: #7c3aed;">New Date</td>
-                <td style="padding: 10px; color: #374151;">${appointment.date}</td>
-              </tr>
-              <tr style="background: #f5f3ff;">
-                <td style="padding: 10px; font-weight: bold; color: #7c3aed;">New Time</td>
-                <td style="padding: 10px; color: #374151;">${appointment.time}</td>
-              </tr>
-            </table>
-            <p style="color: #6b7280; font-size: 13px;">Please arrive 10 minutes early.</p>
-            <p style="color: #374151;">Thank you for choosing HMS Hospital! 💙</p>
-          </div>
-        </div>
-      `,
-    });
-  }
-}
+    // ── RESCHEDULED ──
+    if (req.body.date || req.body.time) {
+      // Notify patient
+      if (userDoc) {
+        await Notification.create({
+          user: userDoc._id,
+          message: `Your appointment with ${appointment.doctor?.name} has been rescheduled to ${appointment.date} at ${appointment.time}.`,
+          type: "booked",
+        });
+      }
+      // Notify doctor
+      if (doctorDoc?.userId) {
+        await Notification.create({
+          user: doctorDoc.userId,
+          message: `Appointment with ${appointment.patient?.name} has been rescheduled to ${appointment.date} at ${appointment.time}.`,
+          type: "booked",
+        });
+      }
+
+      if (userDoc?.email) {
+        await sendEmail({
+          to: userDoc.email,
+          subject: "📅 Appointment Rescheduled — HMS Hospital",
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+              <div style="background-color: #7c3aed; padding: 20px; text-align: center;">
+                <h1 style="color: white; margin: 0; font-size: 22px;">🏥 HMS Hospital</h1>
+              </div>
+              <div style="padding: 24px;">
+                <h2 style="color: #7c3aed;">Appointment Rescheduled!</h2>
+                <p style="color: #374151;">Hi <strong>${appointment.patient?.name}</strong>,</p>
+                <p style="color: #374151;">Your appointment has been rescheduled. Here are the new details:</p>
+                <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+                  <tr style="background: #f5f3ff;">
+                    <td style="padding: 10px; font-weight: bold; color: #7c3aed;">Doctor</td>
+                    <td style="padding: 10px; color: #374151;">${appointment.doctor?.name}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px; font-weight: bold; color: #7c3aed;">New Date</td>
+                    <td style="padding: 10px; color: #374151;">${appointment.date}</td>
+                  </tr>
+                  <tr style="background: #f5f3ff;">
+                    <td style="padding: 10px; font-weight: bold; color: #7c3aed;">New Time</td>
+                    <td style="padding: 10px; color: #374151;">${appointment.time}</td>
+                  </tr>
+                </table>
+                <p style="color: #6b7280; font-size: 13px;">Please arrive 10 minutes early.</p>
+                <p style="color: #374151;">Thank you for choosing HMS Hospital! 💙</p>
+              </div>
+            </div>
+          `,
+        });
+      }
+    }
 
     res.status(200).json({ message: "Appointment updated", appointment });
   } catch (error) {
@@ -311,6 +424,29 @@ const deleteAppointment = async (req, res) => {
 
     const patientDoc = await Patient.findById(appointment.patient._id);
     const userDoc = await User.findById(patientDoc?.user);
+    const doctorDoc = await Doctor.findOne({ _id: appointment.doctor._id });
+
+    // Notify patient
+    if (userDoc) {
+      await Notification.create({
+        user: userDoc._id,
+        message: `Your appointment with ${appointment.doctor?.name} on ${appointment.date} has been cancelled.`,
+        type: "cancelled",
+      });
+    }
+    // Notify doctor
+    if (doctorDoc?.userId) {
+      await Notification.create({
+        user: doctorDoc.userId,
+        message: `Appointment with ${appointment.patient?.name} on ${appointment.date} has been cancelled by the patient.`,
+        type: "cancelled",
+      });
+    }
+    // Notify admins
+    await notifyAdmins(
+      `Appointment cancelled — Patient: ${appointment.patient?.name}, Doctor: ${appointment.doctor?.name}, Date: ${appointment.date}.`,
+      "cancelled"
+    );
 
     if (userDoc?.email) {
       await sendEmail({

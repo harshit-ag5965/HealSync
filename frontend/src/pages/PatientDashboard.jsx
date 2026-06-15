@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import useDarkMode from "../hooks/useDarkMode";
+import NotificationBell from "../components/NotificationBell";
 
 const ProfileEditForm = ({ patient, token, onUpdate }) => {
   const [form, setForm] = useState({
@@ -30,6 +31,8 @@ const ProfileEditForm = ({ patient, token, onUpdate }) => {
       setErr("Failed to update profile");
     }
   };
+
+  
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -79,6 +82,7 @@ const PatientDashboard = () => {
   const [appointments, setAppointments] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [bills, setBills] = useState([]);
+  const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [bookingData, setBookingData] = useState({ doctor: "", date: "", time: "", notes: "" });
@@ -89,24 +93,34 @@ const PatientDashboard = () => {
   const [reschedulingId, setReschedulingId] = useState(null);
   const [rescheduleData, setRescheduleData] = useState({ date: "", time: "" });
   const [rescheduleMsg, setRescheduleMsg] = useState("");
+  const [recordTitle, setRecordTitle] = useState("");
+  const [recordDescription, setRecordDescription] = useState("");
+  const [recordFile, setRecordFile] = useState(null);
+  const [recordMsg, setRecordMsg] = useState("");
+  const [recordErr, setRecordErr] = useState("");
+  const [uploadLoading, setUploadLoading] = useState(false);
 
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
   const config = { headers: { Authorization: `Bearer ${token}` } };
   const { darkMode, toggleDarkMode } = useDarkMode();
 
-  useEffect(() => {
-    if (!token) { navigate("/login"); return; }
-    fetchData();
-  }, []);
+
+// eslint-disable-next-line react-hooks/exhaustive-deps
+useEffect(() => {
+  if (!token) { navigate("/login"); return; }
+  fetchData();
+}, []);
+
 
   const fetchData = async () => {
     try {
-      const [patientRes, appointmentsRes, doctorsRes, billsRes] = await Promise.all([
+      const [patientRes, appointmentsRes, doctorsRes, billsRes, recordsRes] = await Promise.all([
         axios.get("http://localhost:5000/api/patients/me", config),
         axios.get("http://localhost:5000/api/appointments", config),
         axios.get("http://localhost:5000/api/doctors", config),
         axios.get("http://localhost:5000/api/bills", config),
+        axios.get("http://localhost:5000/api/medical-records/my", config),
       ]);
       const myPatient = patientRes.data || null;
       setPatient(myPatient);
@@ -119,6 +133,7 @@ const PatientDashboard = () => {
       setBills(allBills.filter(b =>
         b.patient?._id === myPatient?._id || b.patient === myPatient?._id
       ));
+      setRecords(Array.isArray(recordsRes.data) ? recordsRes.data : []);
     } catch (error) {
       console.error(error);
     }
@@ -245,6 +260,56 @@ const PatientDashboard = () => {
     }
   };
 
+  const handleUploadRecord = async (e) => {
+    e.preventDefault();
+    setRecordMsg(""); setRecordErr("");
+    if (!recordFile) { setRecordErr("Please select a file"); return; }
+    setUploadLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", recordFile);
+      formData.append("title", recordTitle);
+      formData.append("description", recordDescription);
+      await axios.post("http://localhost:5000/api/medical-records/upload", formData, {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" },
+      });
+      setRecordMsg("✅ Record uploaded successfully!");
+      setRecordTitle("");
+      setRecordDescription("");
+      setRecordFile(null);
+      fetchData();
+    } catch (error) {
+      setRecordErr("❌ Failed to upload record");
+    }
+    setUploadLoading(false);
+  };
+
+const handleDownloadRecord = async (url, title) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = title || "medical-record";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error("Download failed:", error);
+    window.open(url, "_blank");
+  }
+};
+
+  const handleDeleteRecord = async (id) => {
+    if (!window.confirm("Delete this record?")) return;
+    try {
+      await axios.delete(`http://localhost:5000/api/medical-records/${id}`, config);
+      fetchData();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   if (loading) return (
     <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center">
       <p className="text-blue-600 dark:text-blue-400 text-xl font-semibold">Loading...</p>
@@ -254,7 +319,6 @@ const PatientDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
 
-      {/* Navbar */}
       <nav className="bg-blue-700 dark:bg-gray-800 text-white px-6 py-4 flex justify-between items-center shadow-md">
         <h1 className="text-xl font-bold">🏥 HMS — Patient Portal</h1>
         <div className="flex items-center gap-4">
@@ -263,6 +327,7 @@ const PatientDashboard = () => {
             {darkMode ? "☀️ Light" : "🌙 Dark"}
           </button>
           <span className="text-sm">Welcome, {patient?.name || "Patient"}!</span>
+          <NotificationBell token={token} />
           <button onClick={handleLogout}
             className="bg-white text-blue-700 px-4 py-1 rounded-lg text-sm font-semibold hover:bg-blue-100 transition">
             Logout
@@ -270,23 +335,21 @@ const PatientDashboard = () => {
         </div>
       </nav>
 
-      {/* Tabs */}
       <div className="bg-white dark:bg-gray-800 shadow-sm px-6 py-2 flex gap-4 flex-wrap">
-        {["dashboard", "appointments", "book", "bills", "profile"].map((tab) => (
+        {["dashboard", "appointments", "book", "bills", "records", "profile"].map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 rounded-lg text-sm font-semibold capitalize transition ${
               activeTab === tab
                 ? "bg-blue-600 text-white"
                 : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
             }`}>
-            {tab === "book" ? "Book Appointment" : tab}
+            {tab === "book" ? "Book Appointment" : tab === "records" ? "📁 Records" : tab}
           </button>
         ))}
       </div>
 
       <div className="p-6 max-w-5xl mx-auto">
 
-        {/* ── DASHBOARD TAB ── */}
         {activeTab === "dashboard" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">Dashboard Overview</h2>
@@ -351,7 +414,6 @@ const PatientDashboard = () => {
           </div>
         )}
 
-        {/* ── APPOINTMENTS TAB ── */}
         {activeTab === "appointments" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">My Appointments</h2>
@@ -383,12 +445,7 @@ const PatientDashboard = () => {
                         }`}>{apt.status}</span>
                         {apt.status === "pending" && (
                           <div className="flex gap-2">
-                            <button
-                              onClick={() => {
-                                setReschedulingId(apt._id);
-                                setRescheduleData({ date: apt.date, time: apt.time });
-                                setRescheduleMsg("");
-                              }}
+                            <button onClick={() => { setReschedulingId(apt._id); setRescheduleData({ date: apt.date, time: apt.time }); setRescheduleMsg(""); }}
                               className="bg-purple-100 text-purple-600 text-xs px-3 py-1 rounded-lg hover:bg-purple-200 font-semibold">
                               Reschedule
                             </button>
@@ -400,16 +457,11 @@ const PatientDashboard = () => {
                         )}
                       </div>
                     </div>
-
                     {reschedulingId === apt._id && (
                       <div className="mt-4 border-t dark:border-gray-600 pt-4 bg-purple-50 dark:bg-purple-900 rounded-xl p-4">
-                        <h4 className="text-sm font-semibold text-purple-600 dark:text-purple-300 mb-3">
-                          📅 Reschedule Appointment
-                        </h4>
+                        <h4 className="text-sm font-semibold text-purple-600 dark:text-purple-300 mb-3">📅 Reschedule Appointment</h4>
                         {rescheduleMsg && (
-                          <div className={`px-4 py-2 rounded-lg text-sm mb-3 ${
-                            rescheduleMsg.includes("✅") ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
-                          }`}>
+                          <div className={`px-4 py-2 rounded-lg text-sm mb-3 ${rescheduleMsg.includes("✅") ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
                             {rescheduleMsg}
                           </div>
                         )}
@@ -429,24 +481,16 @@ const PatientDashboard = () => {
                                 required
                                 className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400">
                                 <option value="">-- Select time --</option>
-                                {["09:00 AM","09:30 AM","10:00 AM","10:30 AM",
-                                  "11:00 AM","11:30 AM","12:00 PM","02:00 PM",
-                                  "02:30 PM","03:00 PM","03:30 PM","04:00 PM"].map((t) => (
+                                {["09:00 AM","09:30 AM","10:00 AM","10:30 AM","11:00 AM","11:30 AM","12:00 PM","02:00 PM","02:30 PM","03:00 PM","03:30 PM","04:00 PM"].map((t) => (
                                   <option key={t} value={t}>{t}</option>
                                 ))}
                               </select>
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <button type="submit"
-                              className="bg-purple-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-purple-700 font-semibold">
-                              Confirm Reschedule
-                            </button>
-                            <button type="button"
-                              onClick={() => { setReschedulingId(null); setRescheduleMsg(""); }}
-                              className="bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-200 text-sm px-4 py-2 rounded-lg hover:bg-gray-300 font-semibold">
-                              Close
-                            </button>
+                            <button type="submit" className="bg-purple-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-purple-700 font-semibold">Confirm Reschedule</button>
+                            <button type="button" onClick={() => { setReschedulingId(null); setRescheduleMsg(""); }}
+                              className="bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-200 text-sm px-4 py-2 rounded-lg hover:bg-gray-300 font-semibold">Close</button>
                           </div>
                         </form>
                       </div>
@@ -458,7 +502,6 @@ const PatientDashboard = () => {
           </div>
         )}
 
-        {/* ── BOOK APPOINTMENT TAB ── */}
         {activeTab === "book" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">Book Appointment</h2>
@@ -545,13 +588,12 @@ const PatientDashboard = () => {
           </div>
         )}
 
-        {/* ── BILLS TAB ── */}
         {activeTab === "bills" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">My Bills</h2>
             {bills.length === 0 ? (
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 text-center">
-                <p className="text-gray-400">No bills yet. Bills are generated when appointments are completed.</p>
+                <p className="text-gray-400">No bills yet.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -566,9 +608,7 @@ const PatientDashboard = () => {
                       <p className="text-2xl font-bold text-blue-600">₹{bill.amount}</p>
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                         bill.status === "paid" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
-                      }`}>
-                        {bill.status}
-                      </span>
+                      }`}>{bill.status}</span>
                       <div className="flex gap-2">
                         {bill.status === "unpaid" && (
                           <button onClick={() => handleMarkPaid(bill._id)}
@@ -589,7 +629,88 @@ const PatientDashboard = () => {
           </div>
         )}
 
-        {/* ── PROFILE TAB ── */}
+        {/* ── RECORDS TAB ── */}
+        {activeTab === "records" && (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">📁 My Medical Records</h2>
+
+            {/* Upload Form */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
+              <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Upload New Record</h3>
+              {recordMsg && <div className="bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 px-4 py-2 rounded-lg text-sm mb-3">{recordMsg}</div>}
+              {recordErr && <div className="bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300 px-4 py-2 rounded-lg text-sm mb-3">{recordErr}</div>}
+              <form onSubmit={handleUploadRecord} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+                  <input type="text" value={recordTitle}
+                    onChange={(e) => setRecordTitle(e.target.value)}
+                    placeholder="e.g. Blood Test Report" required
+                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description (optional)</label>
+                  <input type="text" value={recordDescription}
+                    onChange={(e) => setRecordDescription(e.target.value)}
+                    placeholder="e.g. Annual checkup results"
+                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">File (JPG, PNG)</label>
+                  <input type="file" accept=".jpg,.jpeg,.png"
+                    onChange={(e) => setRecordFile(e.target.files[0])}
+                    required
+                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                </div>
+                <button type="submit" disabled={uploadLoading}
+                  className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50">
+                  {uploadLoading ? "Uploading..." : "📤 Upload Record"}
+                </button>
+              </form>
+            </div>
+
+            {/* Records List */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">My Records ({records.length})</h3>
+              {records.length === 0 ? (
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 text-center">
+                  <p className="text-4xl mb-2">📁</p>
+                  <p className="text-gray-400">No records uploaded yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {records.map((record) => (
+                    <div key={record._id} className="bg-white dark:bg-gray-800 rounded-2xl shadow p-5 flex justify-between items-center">
+                      <div>
+                        <p className="font-semibold text-gray-700 dark:text-gray-200">📄 {record.title}</p>
+                        {record.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{record.description}</p>}
+                        <p className="text-xs text-gray-400 mt-1">
+                          Uploaded: {new Date(record.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <a href={record.fileUrl.replace("/raw/upload/", "/image/upload/").replace(".pdf", ".jpg")}
+  target="_blank" rel="noreferrer"
+  className="bg-blue-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-blue-600">
+  👁️ View
+</a>
+<button
+  onClick={() => handleDownloadRecord(record.fileUrl, record.title)}
+  className="bg-green-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-green-600">
+  ⬇️ Download
+</button>
+                        <button onClick={() => handleDeleteRecord(record._id)}
+                          className="bg-red-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-red-600">
+                          🗑️ Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {activeTab === "profile" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">My Profile</h2>

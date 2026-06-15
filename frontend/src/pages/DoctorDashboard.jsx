@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import useDarkMode from "../hooks/useDarkMode";
+import NotificationBell from "../components/NotificationBell";
 
 const DoctorEditForm = ({ doctor, token, onUpdate }) => {
   const [form, setForm] = useState({
@@ -53,12 +54,9 @@ const DoctorEditForm = ({ doctor, token, onUpdate }) => {
       ].map((field) => (
         <div key={field.name}>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{field.label}</label>
-          <input
-            type={field.type}
-            value={form[field.name]}
+          <input type={field.type} value={form[field.name]}
             onChange={(e) => setForm({ ...form, [field.name]: e.target.value })}
-            className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
-          />
+            className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-400" />
         </div>
       ))}
       <button type="submit"
@@ -74,6 +72,8 @@ const DoctorDashboard = () => {
   const [appointments, setAppointments] = useState([]);
   const [earnings, setEarnings] = useState(null);
   const [bills, setBills] = useState([]);
+  const [patientRecords, setPatientRecords] = useState([]);
+  const [selectedPatient, setSelectedPatient] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [reschedulingId, setReschedulingId] = useState(null);
@@ -85,11 +85,14 @@ const DoctorDashboard = () => {
   const config = { headers: { Authorization: `Bearer ${token}` } };
   const { darkMode, toggleDarkMode } = useDarkMode();
 
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!token) { navigate("/login"); return; }
     fetchData();
   }, []);
 
+  
   const fetchData = async () => {
     try {
       const decoded = jwtDecode(token);
@@ -116,15 +119,26 @@ const DoctorDashboard = () => {
       setEarnings(earningsRes.data);
 
       const allBills = Array.isArray(billsRes.data) ? billsRes.data : [];
-      const myBills = allBills.filter(
+      setBills(allBills.filter(
         (bill) => bill.doctor?._id?.toString() === myDoctor?._id?.toString()
-      );
-      setBills(myBills);
+      ));
 
     } catch (error) {
       console.error("fetchData error:", error);
     }
     setLoading(false);
+  };
+
+  const fetchPatientRecords = async (patientId) => {
+    try {
+      const res = await axios.get(
+        `http://localhost:5000/api/medical-records/patient/${patientId}`, config
+      );
+      setPatientRecords(Array.isArray(res.data) ? res.data : []);
+      setSelectedPatient(patientId);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const handleUpdateStatus = async (id, status) => {
@@ -160,7 +174,6 @@ const DoctorDashboard = () => {
   const handleDownloadPDF = (bill) => {
     const { jsPDF } = require("jspdf");
     const doc = new jsPDF();
-
     doc.setFillColor(21, 128, 61);
     doc.rect(0, 0, 210, 40, "F");
     doc.setTextColor(255, 255, 255);
@@ -168,20 +181,16 @@ const DoctorDashboard = () => {
     doc.text("HMS Hospital", 105, 18, { align: "center" });
     doc.setFontSize(12);
     doc.text("Hospital Management System", 105, 30, { align: "center" });
-
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(18);
     doc.text("BILL / INVOICE", 105, 55, { align: "center" });
-
     doc.setFontSize(11);
     doc.setTextColor(100, 100, 100);
     doc.text(`Bill ID: ${bill._id}`, 20, 70);
     doc.text(`Date: ${bill.date}`, 20, 80);
     doc.text(`Status: ${bill.status.toUpperCase()}`, 20, 90);
-
     doc.setDrawColor(200, 200, 200);
     doc.line(20, 95, 190, 95);
-
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(12);
     doc.text("Patient Details", 20, 108);
@@ -189,7 +198,6 @@ const DoctorDashboard = () => {
     doc.setTextColor(80, 80, 80);
     doc.text(`Name: ${bill.patient?.name || "N/A"}`, 20, 118);
     doc.text(`Phone: ${bill.patient?.phone || "N/A"}`, 20, 128);
-
     doc.setFontSize(12);
     doc.setTextColor(0, 0, 0);
     doc.text("Doctor Details", 110, 108);
@@ -197,10 +205,8 @@ const DoctorDashboard = () => {
     doc.setTextColor(80, 80, 80);
     doc.text(`Name: ${bill.doctor?.name || "N/A"}`, 110, 118);
     doc.text(`Specialization: ${bill.doctor?.specialization || "N/A"}`, 110, 128);
-
     doc.setDrawColor(200, 200, 200);
     doc.line(20, 135, 190, 135);
-
     doc.setFontSize(14);
     doc.setTextColor(0, 0, 0);
     doc.text("Amount Details", 20, 148);
@@ -212,14 +218,12 @@ const DoctorDashboard = () => {
     doc.setFontSize(16);
     doc.setTextColor(22, 163, 74);
     doc.text(`Rs. ${bill.amount}`, 165, 167, { align: "right" });
-
     doc.setFillColor(21, 128, 61);
     doc.rect(0, 270, 210, 30, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(10);
     doc.text("Thank you for choosing HMS Hospital!", 105, 282, { align: "center" });
     doc.text("For queries: support@hmshospital.com", 105, 290, { align: "center" });
-
     doc.save(`HMS_Bill_${bill._id}.pdf`);
   };
 
@@ -239,13 +243,27 @@ const DoctorDashboard = () => {
     }
   };
 
+  const handleDownloadRecord = async (url, title) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = title || "medical-record";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error("Download failed:", error);
+    window.open(url, "_blank");
+  }
+};
+
   const RescheduleForm = () => (
     <div className="mt-4 border-t dark:border-gray-600 pt-4 bg-purple-50 dark:bg-purple-900 rounded-xl p-4">
       <h4 className="text-sm font-semibold text-purple-600 dark:text-purple-300 mb-3">📅 Reschedule Appointment</h4>
       {rescheduleMsg && (
-        <div className={`px-4 py-2 rounded-lg text-sm mb-3 ${
-          rescheduleMsg.includes("✅") ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
-        }`}>
+        <div className={`px-4 py-2 rounded-lg text-sm mb-3 ${rescheduleMsg.includes("✅") ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
           {rescheduleMsg}
         </div>
       )}
@@ -265,28 +283,23 @@ const DoctorDashboard = () => {
               required
               className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400">
               <option value="">-- Select time --</option>
-              {["09:00 AM","09:30 AM","10:00 AM","10:30 AM",
-                "11:00 AM","11:30 AM","12:00 PM","02:00 PM",
-                "02:30 PM","03:00 PM","03:30 PM","04:00 PM"].map((t) => (
+              {["09:00 AM","09:30 AM","10:00 AM","10:30 AM","11:00 AM","11:30 AM","12:00 PM","02:00 PM","02:30 PM","03:00 PM","03:30 PM","04:00 PM"].map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
           </div>
         </div>
         <div className="flex gap-2">
-          <button type="submit"
-            className="bg-purple-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-purple-700 font-semibold">
-            Confirm Reschedule
-          </button>
-          <button type="button"
-            onClick={() => { setReschedulingId(null); setRescheduleMsg(""); }}
-            className="bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-200 text-sm px-4 py-2 rounded-lg hover:bg-gray-300 font-semibold">
-            Close
-          </button>
+          <button type="submit" className="bg-purple-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-purple-700 font-semibold">Confirm Reschedule</button>
+          <button type="button" onClick={() => { setReschedulingId(null); setRescheduleMsg(""); }}
+            className="bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-200 text-sm px-4 py-2 rounded-lg hover:bg-gray-300 font-semibold">Close</button>
         </div>
       </form>
     </div>
   );
+
+  // Get unique patients from appointments
+  const myPatients = [...new Map(appointments.map((a) => [a.patient?._id, a.patient])).values()].filter(Boolean);
 
   if (loading) return (
     <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center">
@@ -297,7 +310,6 @@ const DoctorDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
 
-      {/* Navbar */}
       <nav className="bg-green-700 dark:bg-gray-800 text-white px-6 py-4 flex justify-between items-center shadow-md">
         <h1 className="text-xl font-bold">🏥 HMS — Doctor Portal</h1>
         <div className="flex items-center gap-4">
@@ -306,6 +318,7 @@ const DoctorDashboard = () => {
             {darkMode ? "☀️ Light" : "🌙 Dark"}
           </button>
           <span className="text-sm">Welcome, {doctor?.name || "Doctor"}!</span>
+          <NotificationBell token={token} />
           <button onClick={handleLogout}
             className="bg-white text-green-700 px-4 py-1 rounded-lg text-sm font-semibold hover:bg-green-100 transition">
             Logout
@@ -313,23 +326,19 @@ const DoctorDashboard = () => {
         </div>
       </nav>
 
-      {/* Tabs */}
       <div className="bg-white dark:bg-gray-800 shadow-sm px-6 py-2 flex gap-4 flex-wrap">
-        {["dashboard", "appointments", "patients", "earnings", "bills", "profile"].map((tab) => (
+        {["dashboard", "appointments", "patients", "records", "earnings", "bills", "profile"].map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 rounded-lg text-sm font-semibold capitalize transition ${
-              activeTab === tab
-                ? "bg-green-600 text-white"
-                : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              activeTab === tab ? "bg-green-600 text-white" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
             }`}>
-            {tab}
+            {tab === "records" ? "📁 Records" : tab}
           </button>
         ))}
       </div>
 
       <div className="p-6 max-w-5xl mx-auto">
 
-        {/* ── DASHBOARD TAB ── */}
         {activeTab === "dashboard" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">Dashboard Overview</h2>
@@ -340,21 +349,15 @@ const DoctorDashboard = () => {
               </div>
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 border-l-4 border-yellow-500">
                 <p className="text-gray-500 dark:text-gray-400 text-sm">Pending</p>
-                <p className="text-4xl font-bold text-yellow-500 mt-2">
-                  {appointments.filter((a) => a.status === "pending").length}
-                </p>
+                <p className="text-4xl font-bold text-yellow-500 mt-2">{appointments.filter((a) => a.status === "pending").length}</p>
               </div>
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 border-l-4 border-green-500">
                 <p className="text-gray-500 dark:text-gray-400 text-sm">Completed</p>
-                <p className="text-4xl font-bold text-green-500 mt-2">
-                  {appointments.filter((a) => a.status === "completed").length}
-                </p>
+                <p className="text-4xl font-bold text-green-500 mt-2">{appointments.filter((a) => a.status === "completed").length}</p>
               </div>
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 border-l-4 border-red-500">
                 <p className="text-gray-500 dark:text-gray-400 text-sm">Cancelled</p>
-                <p className="text-4xl font-bold text-red-500 mt-2">
-                  {appointments.filter((a) => a.status === "cancelled").length}
-                </p>
+                <p className="text-4xl font-bold text-red-500 mt-2">{appointments.filter((a) => a.status === "cancelled").length}</p>
               </div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mt-6">
@@ -379,9 +382,7 @@ const DoctorDashboard = () => {
                         <td className="py-2 text-gray-700 dark:text-gray-300">{apt.date}</td>
                         <td className="py-2 text-gray-700 dark:text-gray-300">{apt.time}</td>
                         <td className="py-2">
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(apt.status)}`}>
-                            {apt.status}
-                          </span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(apt.status)}`}>{apt.status}</span>
                         </td>
                         <td className="py-2">
                           {apt.status === "pending" && (
@@ -402,7 +403,6 @@ const DoctorDashboard = () => {
           </div>
         )}
 
-        {/* ── APPOINTMENTS TAB ── */}
         {activeTab === "appointments" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">All Appointments</h2>
@@ -421,37 +421,22 @@ const DoctorDashboard = () => {
                         {apt.notes && <p className="text-sm text-gray-400 mt-1">📝 {apt.notes}</p>}
                       </div>
                       <div className="flex flex-col items-end gap-2">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(apt.status)}`}>
-                          {apt.status}
-                        </span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(apt.status)}`}>{apt.status}</span>
                         <div className="flex gap-2 flex-wrap justify-end">
                           {apt.status === "pending" && (
                             <button onClick={() => handleUpdateStatus(apt._id, "confirmed")}
-                              className="bg-blue-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-blue-600">
-                              Confirm
-                            </button>
+                              className="bg-blue-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-blue-600">Confirm</button>
                           )}
                           {apt.status === "confirmed" && (
                             <button onClick={() => handleUpdateStatus(apt._id, "completed")}
-                              className="bg-green-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-green-600">
-                              Complete
-                            </button>
+                              className="bg-green-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-green-600">Complete</button>
                           )}
                           {(apt.status === "pending" || apt.status === "confirmed") && (
                             <>
-                              <button
-                                onClick={() => {
-                                  setReschedulingId(apt._id);
-                                  setRescheduleData({ date: apt.date, time: apt.time });
-                                  setRescheduleMsg("");
-                                }}
-                                className="bg-purple-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-purple-600">
-                                Reschedule
-                              </button>
+                              <button onClick={() => { setReschedulingId(apt._id); setRescheduleData({ date: apt.date, time: apt.time }); setRescheduleMsg(""); }}
+                                className="bg-purple-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-purple-600">Reschedule</button>
                               <button onClick={() => handleUpdateStatus(apt._id, "cancelled")}
-                                className="bg-red-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-red-600">
-                                Cancel
-                              </button>
+                                className="bg-red-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-red-600">Cancel</button>
                             </>
                           )}
                         </div>
@@ -465,40 +450,99 @@ const DoctorDashboard = () => {
           </div>
         )}
 
-        {/* ── PATIENTS TAB ── */}
         {activeTab === "patients" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">My Patients</h2>
-            {appointments.length === 0 ? (
+            {myPatients.length === 0 ? (
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 text-center">
                 <p className="text-gray-400">No patients yet.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[...new Map(appointments.map((a) => [a.patient?._id, a.patient])).values()]
-                  .filter(Boolean)
-                  .map((patient) => (
-                    <div key={patient._id} className="bg-white dark:bg-gray-800 rounded-2xl shadow p-5">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center text-2xl">👤</div>
-                        <div>
-                          <p className="font-semibold text-gray-700 dark:text-gray-200">{patient.name}</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">{patient.phone}</p>
-                        </div>
-                      </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        <p>Age: {patient.age || "N/A"}</p>
-                        <p>Gender: {patient.gender || "N/A"}</p>
-                        <p>Medical History: {patient.medicalHistory || "None"}</p>
+                {myPatients.map((patient) => (
+                  <div key={patient._id} className="bg-white dark:bg-gray-800 rounded-2xl shadow p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center text-2xl">👤</div>
+                      <div>
+                        <p className="font-semibold text-gray-700 dark:text-gray-200">{patient.name}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{patient.phone}</p>
                       </div>
                     </div>
-                  ))}
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                      <p>Age: {patient.age || "N/A"}</p>
+                      <p>Gender: {patient.gender || "N/A"}</p>
+                      <p>Medical History: {patient.medicalHistory || "None"}</p>
+                    </div>
+                    <button
+                      onClick={() => { fetchPatientRecords(patient._id); setActiveTab("records"); }}
+                      className="bg-green-100 text-green-600 text-xs px-3 py-1 rounded-lg hover:bg-green-200 font-semibold">
+                      📁 View Records
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
         )}
 
-        {/* ── EARNINGS TAB ── */}
+        {/* ── RECORDS TAB ── */}
+        {activeTab === "records" && (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">📁 Patient Records</h2>
+
+            {/* Patient selector */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-4 mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Patient</label>
+              <select
+                value={selectedPatient || ""}
+                onChange={(e) => fetchPatientRecords(e.target.value)}
+                className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-400">
+                <option value="">-- Select a patient --</option>
+                {myPatients.map((p) => (
+                  <option key={p._id} value={p._id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Records list */}
+            {!selectedPatient ? (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 text-center">
+                <p className="text-4xl mb-2">👆</p>
+                <p className="text-gray-400">Select a patient to view their records</p>
+              </div>
+            ) : patientRecords.length === 0 ? (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 text-center">
+                <p className="text-4xl mb-2">📁</p>
+                <p className="text-gray-400">No records found for this patient</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {patientRecords.map((record) => (
+                  <div key={record._id} className="bg-white dark:bg-gray-800 rounded-2xl shadow p-5 flex justify-between items-center">
+                    <div>
+                      <p className="font-semibold text-gray-700 dark:text-gray-200">📄 {record.title}</p>
+                      {record.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{record.description}</p>}
+                      <p className="text-xs text-gray-400 mt-1">Uploaded: {new Date(record.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <a href={record.fileUrl.replace("/raw/upload/", "/image/upload/").replace(".pdf", ".jpg")}
+  target="_blank" rel="noreferrer"
+  className="bg-blue-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-blue-600">
+  👁️ View
+</a>
+<button
+  onClick={() => handleDownloadRecord(record.fileUrl, record.title)}
+  className="bg-green-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-green-600">
+  ⬇️ Download
+</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === "earnings" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">My Earnings</h2>
@@ -547,9 +591,7 @@ const DoctorDashboard = () => {
                       </div>
                       <div className="flex items-center gap-3">
                         <p className="font-bold text-gray-700 dark:text-gray-200">₹{bill.amount}</p>
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          bill.status === "paid" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
-                        }`}>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${bill.status === "paid" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
                           {bill.status}
                         </span>
                       </div>
@@ -561,7 +603,6 @@ const DoctorDashboard = () => {
           </div>
         )}
 
-        {/* ── BILLS TAB ── */}
         {activeTab === "bills" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">Patient Bills</h2>
@@ -579,11 +620,7 @@ const DoctorDashboard = () => {
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       <p className="text-2xl font-bold text-green-600">₹{bill.amount}</p>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        bill.status === "paid"
-                          ? "bg-green-100 text-green-600"
-                          : "bg-red-100 text-red-600"
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${bill.status === "paid" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
                         {bill.status}
                       </span>
                       <button onClick={() => handleDownloadPDF(bill)}
@@ -598,7 +635,6 @@ const DoctorDashboard = () => {
           </div>
         )}
 
-        {/* ── PROFILE TAB ── */}
         {activeTab === "profile" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">My Profile</h2>

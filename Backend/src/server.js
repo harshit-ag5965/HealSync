@@ -7,6 +7,10 @@ const doctorRoutes = require("./routes/doctorRoutes");
 const patientRoutes = require("./routes/patientRoutes");
 const appointmentRoutes = require("./routes/appointmentRoutes"); // ← ADDED
 const billRoutes = require("./routes/billRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
+const medicalRecordRoutes = require("./routes/medicalRecordRoutes");
+const startReminderCron = require("./utils/reminderCron");
+
 
 dotenv.config();
 connectDB();
@@ -25,8 +29,12 @@ app.use("/api/doctors", doctorRoutes);
 app.use("/api/patients", patientRoutes);
 app.use("/api/appointments", appointmentRoutes); // ← ADDED
 app.use("/api/bills", billRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/medical-records", medicalRecordRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+startReminderCron();
