@@ -32,4 +32,14 @@ router.get("/me", protect, async (req, res) => {
   res.json({ message: "This is a protected route", user: req.user });
 });
 
+// GET all users - Admin only
+router.get("/users", protect, async (req, res) => {
+  try {
+    const users = await User.find().select("-password");
+    res.status(200).json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;

@@ -1,215 +1,185 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import useDarkMode from "../hooks/useDarkMode";
-import {
-  PieChart, Pie, Cell, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer
-} from "recharts";
 import NotificationBell from "../components/NotificationBell";
-
-const DoctorEditModal = ({ doctor, token, onUpdate, onClose }) => {
-  const [form, setForm] = useState({
-    name: doctor.name || "",
-    phone: doctor.phone || "",
-    address: doctor.address || "",
-    specialization: doctor.specialization || "",
-    experience: doctor.experience || "",
-    fees: doctor.fees || "",
-  });
-  const [msg, setMsg] = useState("");
-  const [err, setErr] = useState("");
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setMsg(""); setErr("");
-    try {
-      await axios.put(
-        `http://localhost:5000/api/doctors/${doctor._id}`,
-        form,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setMsg("Doctor updated successfully!");
-      onUpdate();
-      setTimeout(() => onClose(), 1000);
-    } catch (error) {
-      setErr("Failed to update doctor");
-    }
-  };
-
-  
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200">Edit Doctor</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
-        </div>
-        {msg && <div className="bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 px-4 py-2 rounded-lg text-sm mb-3">✅ {msg}</div>}
-        {err && <div className="bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300 px-4 py-2 rounded-lg text-sm mb-3">❌ {err}</div>}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {[
-            { label: "Full Name", name: "name", type: "text" },
-            { label: "Phone", name: "phone", type: "text" },
-            { label: "Specialization", name: "specialization", type: "text" },
-            { label: "Experience (years)", name: "experience", type: "number" },
-            { label: "Fees (₹)", name: "fees", type: "number" },
-            { label: "Address", name: "address", type: "text" },
-          ].map((field) => (
-            <div key={field.name}>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{field.label}</label>
-              <input type={field.type} value={form[field.name]}
-                onChange={(e) => setForm({ ...form, [field.name]: e.target.value })}
-                className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400" />
-            </div>
-          ))}
-          <div className="flex gap-3">
-            <button type="submit"
-              className="flex-1 bg-purple-600 text-white py-2 rounded-lg font-semibold hover:bg-purple-700 transition">
-              Save Changes
-            </button>
-            <button type="button" onClick={onClose}
-              className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200 py-2 rounded-lg font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition">
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
+import SearchBar from "../components/SearchBar";
+import Pagination from "../components/Pagination";
 
 const AdminDashboard = () => {
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [loading, setLoading] = useState(true);
+
+  const [stats, setStats] = useState({ doctors: 0, patients: 0, appointments: 0, revenue: 0 });
   const [doctors, setDoctors] = useState([]);
   const [patients, setPatients] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [bills, setBills] = useState([]);
-  const [allRecords, setAllRecords] = useState([]);
-  const [recordSearch, setRecordSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [users, setUsers] = useState([]);
+
+  const [doctorForm, setDoctorForm] = useState({ name: "", email: "", password: "", phone: "", specialization: "", experience: "", fees: "", address: "" });
   const [editingDoctor, setEditingDoctor] = useState(null);
-  const [newDoctor, setNewDoctor] = useState({
-    name: "", email: "", password: "", phone: "",
-    specialization: "", experience: "", fees: "", address: "",
-  });
-  const [doctorMsg, setDoctorMsg] = useState("");
-  const [doctorErr, setDoctorErr] = useState("");
-  const [reschedulingId, setReschedulingId] = useState(null);
-  const [rescheduleData, setRescheduleData] = useState({ date: "", time: "" });
-  const [rescheduleMsg, setRescheduleMsg] = useState("");
+  const [editDoctorForm, setEditDoctorForm] = useState({});
+
+  // Search states
+  const [searchDoctors, setSearchDoctors] = useState("");
+  const [searchPatients, setSearchPatients] = useState("");
+  const [searchAppointments, setSearchAppointments] = useState("");
+  const [searchBills, setSearchBills] = useState("");
+  const [searchUsers, setSearchUsers] = useState("");
+
+  // Pagination states
+  const [doctorPage, setDoctorPage] = useState(1);
+  const [patientPage, setPatientPage] = useState(1);
+  const [appointmentPage, setAppointmentPage] = useState(1);
+  const [billPage, setBillPage] = useState(1);
+  const [userPage, setUserPage] = useState(1);
+  const PER_PAGE = 5;
 
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
   const config = { headers: { Authorization: `Bearer ${token}` } };
   const { darkMode, toggleDarkMode } = useDarkMode();
 
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!token) { navigate("/login"); return; }
-    fetchData();
+    fetchAll();
   }, []);
 
-
-  const fetchData = async () => {
-    try {
-      const [doctorsRes, patientsRes, appointmentsRes, billsRes, recordsRes] = await Promise.all([
-        axios.get("http://localhost:5000/api/doctors", config),
-        axios.get("http://localhost:5000/api/patients", config),
-        axios.get("http://localhost:5000/api/appointments", config),
-        axios.get("http://localhost:5000/api/bills", config),
-        axios.get("http://localhost:5000/api/medical-records/all", config),
-      ]);
-      setDoctors(Array.isArray(doctorsRes.data) ? doctorsRes.data : []);
-      setPatients(Array.isArray(patientsRes.data) ? patientsRes.data : []);
-      setAppointments(Array.isArray(appointmentsRes.data) ? appointmentsRes.data : []);
-      setBills(Array.isArray(billsRes.data) ? billsRes.data : []);
-      setAllRecords(Array.isArray(recordsRes.data) ? recordsRes.data : []);
-    } catch (error) {
-      console.error(error);
-    }
+  const fetchAll = async () => {
+    setLoading(true);
+    const safe = async (fn) => {
+      try { return await fn(); }
+      catch (e) { console.warn("API failed:", e.config?.url, e.response?.status); return { data: [] }; }
+    };
+    const [doctorsRes, patientsRes, appointmentsRes, billsRes, usersRes] = await Promise.all([
+      safe(() => axios.get("http://localhost:5000/api/doctors", config)),
+      safe(() => axios.get("http://localhost:5000/api/patients", config)),
+      safe(() => axios.get("http://localhost:5000/api/appointments", config)),
+      safe(() => axios.get("http://localhost:5000/api/bills", config)),
+      safe(() => axios.get("http://localhost:5000/api/auth/users", config)),
+    ]);
+    const d = Array.isArray(doctorsRes.data) ? doctorsRes.data : [];
+    const p = Array.isArray(patientsRes.data) ? patientsRes.data : [];
+    const a = Array.isArray(appointmentsRes.data) ? appointmentsRes.data : [];
+    const b = Array.isArray(billsRes.data) ? billsRes.data : [];
+    const u = Array.isArray(usersRes.data) ? usersRes.data : [];
+    setDoctors(d); setPatients(p); setAppointments(a); setBills(b); setUsers(u);
+    const revenue = b.filter(bill => bill.status === "paid").reduce((sum, bill) => sum + (bill.amount || 0), 0);
+    setStats({ doctors: d.length, patients: p.length, appointments: a.length, revenue });
     setLoading(false);
   };
 
+  // Filtered lists
+  const filteredDoctors = doctors.filter(d =>
+    d.name?.toLowerCase().includes(searchDoctors.toLowerCase()) ||
+    d.specialization?.toLowerCase().includes(searchDoctors.toLowerCase())
+  );
+  const filteredPatients = patients.filter(p =>
+    p.name?.toLowerCase().includes(searchPatients.toLowerCase()) ||
+    p.phone?.toLowerCase().includes(searchPatients.toLowerCase())
+  );
+  const filteredAppointments = appointments.filter(a =>
+    a.patient?.name?.toLowerCase().includes(searchAppointments.toLowerCase()) ||
+    a.doctor?.name?.toLowerCase().includes(searchAppointments.toLowerCase()) ||
+    a.status?.toLowerCase().includes(searchAppointments.toLowerCase())
+  );
+  const filteredBills = bills.filter(b =>
+    b.patient?.name?.toLowerCase().includes(searchBills.toLowerCase()) ||
+    b.status?.toLowerCase().includes(searchBills.toLowerCase())
+  );
+  const filteredUsers = users.filter(u =>
+    u.name?.toLowerCase().includes(searchUsers.toLowerCase()) ||
+    u.email?.toLowerCase().includes(searchUsers.toLowerCase()) ||
+    u.role?.toLowerCase().includes(searchUsers.toLowerCase())
+  );
+
+  const paginate = (arr, page) => arr.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const totalPages = (arr) => Math.ceil(arr.length / PER_PAGE);
+
   const handleAddDoctor = async (e) => {
     e.preventDefault();
-    setDoctorMsg(""); setDoctorErr("");
     try {
-      await axios.post("http://localhost:5000/api/doctors", {
-        ...newDoctor,
-        experience: Number(newDoctor.experience),
-        fees: Number(newDoctor.fees),
-      }, config);
-      setDoctorMsg("Doctor added successfully!");
-      setNewDoctor({ name: "", email: "", password: "", phone: "",
-        specialization: "", experience: "", fees: "", address: "" });
-      fetchData();
+      await axios.post("http://localhost:5000/api/doctors/register", doctorForm, config);
+      toast.success("Doctor added successfully!");
+      setDoctorForm({ name: "", email: "", password: "", phone: "", specialization: "", experience: "", fees: "", address: "" });
+      fetchAll();
     } catch (err) {
-      setDoctorErr(err.response?.data?.message || "Failed to add doctor");
+      toast.error(err.response?.data?.message || "Failed to add doctor");
     }
   };
 
   const handleDeleteDoctor = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this doctor?")) return;
+    if (!window.confirm("Delete this doctor?")) return;
     try {
       await axios.delete(`http://localhost:5000/api/doctors/${id}`, config);
-      fetchData();
-    } catch (error) {
-      console.error(error);
-    }
+      toast.success("Doctor deleted!");
+      fetchAll();
+    } catch { toast.error("Failed to delete doctor"); }
+  };
+
+  const handleEditDoctor = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.put(`http://localhost:5000/api/doctors/${editingDoctor}`, editDoctorForm, config);
+      toast.success("Doctor updated!");
+      setEditingDoctor(null);
+      fetchAll();
+    } catch { toast.error("Failed to update doctor"); }
   };
 
   const handleDeletePatient = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this patient?")) return;
+    if (!window.confirm("Delete this patient?")) return;
     try {
       await axios.delete(`http://localhost:5000/api/patients/${id}`, config);
-      fetchData();
-    } catch (error) {
-      console.error(error);
-    }
+      toast.success("Patient deleted!");
+      fetchAll();
+    } catch { toast.error("Failed to delete patient"); }
   };
 
-  const handleUpdateStatus = async (id, status) => {
+  const handleDeleteAppointment = async (id) => {
+    if (!window.confirm("Delete this appointment?")) return;
+    try {
+      await axios.delete(`http://localhost:5000/api/appointments/${id}`, config);
+      toast.success("Appointment deleted!");
+      fetchAll();
+    } catch { toast.error("Failed to delete appointment"); }
+  };
+
+  const handleUpdateAppointmentStatus = async (id, status) => {
     try {
       await axios.put(`http://localhost:5000/api/appointments/${id}`, { status }, config);
-      fetchData();
-    } catch (error) {
-      console.error(error);
-    }
+      toast.success(`Status updated to ${status}`);
+      fetchAll();
+    } catch { toast.error("Failed to update status"); }
   };
 
-  const handleReschedule = async (e) => {
-    e.preventDefault();
-    setRescheduleMsg("");
+  const handleDeleteBill = async (id) => {
+    if (!window.confirm("Delete this bill?")) return;
     try {
-      await axios.put(
-        `http://localhost:5000/api/appointments/${reschedulingId}`,
-        { date: rescheduleData.date, time: rescheduleData.time },
-        config
-      );
-      setRescheduleMsg("✅ Rescheduled successfully!");
-      setTimeout(() => {
-        setReschedulingId(null);
-        setRescheduleData({ date: "", time: "" });
-        setRescheduleMsg("");
-      }, 1500);
-      fetchData();
-    } catch (error) {
-      setRescheduleMsg("❌ Failed to reschedule");
-    }
+      await axios.delete(`http://localhost:5000/api/bills/${id}`, config);
+      toast.success("Bill deleted!");
+      fetchAll();
+    } catch { toast.error("Failed to delete bill"); }
   };
 
-  const handleDeleteRecord = async (id) => {
-    if (!window.confirm("Delete this medical record?")) return;
+  const handleUpdateBillStatus = async (id, status) => {
     try {
-      await axios.delete(`http://localhost:5000/api/medical-records/${id}`, config);
-      fetchData();
-    } catch (error) {
-      console.error(error);
-    }
+      await axios.put(`http://localhost:5000/api/bills/${id}`, { status }, config);
+      toast.success(`Bill marked as ${status}`);
+      fetchAll();
+    } catch { toast.error("Failed to update bill"); }
+  };
+
+  const handleDeleteUser = async (id) => {
+    if (!window.confirm("Delete this user?")) return;
+    try {
+      await axios.delete(`http://localhost:5000/api/users/${id}`, config);
+      toast.success("User deleted!");
+      fetchAll();
+    } catch { toast.error("Failed to delete user"); }
   };
 
   const handleLogout = () => {
@@ -218,550 +188,458 @@ const AdminDashboard = () => {
     navigate("/login");
   };
 
-  const handleDownloadPDF = (bill) => {
-    const { jsPDF } = require("jspdf");
-    const doc = new jsPDF();
-    doc.setFillColor(109, 40, 217);
-    doc.rect(0, 0, 210, 40, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(22);
-    doc.text("HMS Hospital", 105, 18, { align: "center" });
-    doc.setFontSize(12);
-    doc.text("Hospital Management System", 105, 30, { align: "center" });
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(18);
-    doc.text("BILL / INVOICE", 105, 55, { align: "center" });
-    doc.setFontSize(11);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Bill ID: ${bill._id}`, 20, 70);
-    doc.text(`Date: ${bill.date}`, 20, 80);
-    doc.text(`Status: ${bill.status.toUpperCase()}`, 20, 90);
-    doc.setDrawColor(200, 200, 200);
-    doc.line(20, 95, 190, 95);
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(12);
-    doc.text("Patient Details", 20, 108);
-    doc.setFontSize(11);
-    doc.setTextColor(80, 80, 80);
-    doc.text(`Name: ${bill.patient?.name || "N/A"}`, 20, 118);
-    doc.text(`Phone: ${bill.patient?.phone || "N/A"}`, 20, 128);
-    doc.setFontSize(12);
-    doc.setTextColor(0, 0, 0);
-    doc.text("Doctor Details", 110, 108);
-    doc.setFontSize(11);
-    doc.setTextColor(80, 80, 80);
-    doc.text(`Name: ${bill.doctor?.name || "N/A"}`, 110, 118);
-    doc.text(`Specialization: ${bill.doctor?.specialization || "N/A"}`, 110, 128);
-    doc.setDrawColor(200, 200, 200);
-    doc.line(20, 135, 190, 135);
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
-    doc.text("Amount Details", 20, 148);
-    doc.setFillColor(245, 243, 255);
-    doc.rect(20, 155, 170, 20, "F");
-    doc.setFontSize(13);
-    doc.setTextColor(109, 40, 217);
-    doc.text("Consultation Fee:", 25, 167);
-    doc.setFontSize(16);
-    doc.setTextColor(22, 163, 74);
-    doc.text(`Rs. ${bill.amount}`, 165, 167, { align: "right" });
-    doc.setFillColor(109, 40, 217);
-    doc.rect(0, 270, 210, 30, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(10);
-    doc.text("Thank you for choosing HMS Hospital!", 105, 282, { align: "center" });
-    doc.text("For queries: support@hmshospital.com", 105, 290, { align: "center" });
-    doc.save(`HMS_Bill_${bill._id}.pdf`);
+  const getStatusBadge = (status) => {
+    const styles = {
+      pending: "bg-amber-100 text-amber-700 border border-amber-200",
+      confirmed: "bg-blue-100 text-blue-700 border border-blue-200",
+      completed: "bg-green-100 text-green-700 border border-green-200",
+      cancelled: "bg-red-100 text-red-700 border border-red-200",
+      paid: "bg-green-100 text-green-700 border border-green-200",
+      unpaid: "bg-red-100 text-red-700 border border-red-200",
+    };
+    return styles[status] || "bg-gray-100 text-gray-600";
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "pending": return "bg-yellow-100 text-yellow-600";
-      case "confirmed": return "bg-blue-100 text-blue-600";
-      case "completed": return "bg-green-100 text-green-600";
-      case "cancelled": return "bg-red-100 text-red-600";
-      default: return "bg-gray-100 text-gray-600";
-    }
-  };
+  const card = `rounded-2xl border shadow-sm ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`;
+  const th = `px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide ${darkMode ? "text-gray-400" : "text-gray-500"}`;
+  const td = `px-4 py-3 text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`;
+  const input = `w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 ${darkMode ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : "border-gray-200 bg-gray-50"}`;
+  const label = `block text-xs font-semibold mb-1 ${darkMode ? "text-gray-300" : "text-gray-600"}`;
 
-  const handleDownloadRecord = async (url, title) => {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = title || "medical-record";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  } catch (error) {
-    console.error("Download failed:", error);
-    window.open(url, "_blank");
-  }
-};
-
-  const RescheduleForm = () => (
-    <div className="mt-4 border-t dark:border-gray-600 pt-4 bg-purple-50 dark:bg-purple-900 rounded-xl p-4">
-      <h4 className="text-sm font-semibold text-purple-600 dark:text-purple-300 mb-3">📅 Reschedule Appointment</h4>
-      {rescheduleMsg && (
-        <div className={`px-4 py-2 rounded-lg text-sm mb-3 ${rescheduleMsg.includes("✅") ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
-          {rescheduleMsg}
-        </div>
-      )}
-      <form onSubmit={handleReschedule} className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">New Date</label>
-            <input type="date" value={rescheduleData.date}
-              onChange={(e) => setRescheduleData({ ...rescheduleData, date: e.target.value })}
-              min={new Date().toISOString().split("T")[0]} required
-              className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">New Time</label>
-            <select value={rescheduleData.time}
-              onChange={(e) => setRescheduleData({ ...rescheduleData, time: e.target.value })}
-              required
-              className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400">
-              <option value="">-- Select time --</option>
-              {["09:00 AM","09:30 AM","10:00 AM","10:30 AM","11:00 AM","11:30 AM","12:00 PM","02:00 PM","02:30 PM","03:00 PM","03:30 PM","04:00 PM"].map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button type="submit" className="bg-purple-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-purple-700 font-semibold">Confirm Reschedule</button>
-          <button type="button" onClick={() => { setReschedulingId(null); setRescheduleMsg(""); }}
-            className="bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-200 text-sm px-4 py-2 rounded-lg hover:bg-gray-300 font-semibold">Close</button>
-        </div>
-      </form>
-    </div>
-  );
-
-  const filteredRecords = allRecords.filter(r =>
-    r.patient?.name?.toLowerCase().includes(recordSearch.toLowerCase()) ||
-    r.title?.toLowerCase().includes(recordSearch.toLowerCase())
-  );
+  const navItems = [
+    { id: "dashboard", icon: "📊", label: "Dashboard" },
+    { id: "doctors", icon: "👨‍⚕️", label: "Doctors" },
+    { id: "add-doctor", icon: "➕", label: "Add Doctor" },
+    { id: "patients", icon: "🧑‍🤝‍🧑", label: "Patients" },
+    { id: "appointments", icon: "📅", label: "Appointments" },
+    { id: "bills", icon: "💳", label: "Bills" },
+    { id: "users", icon: "👤", label: "Users" },
+  ];
 
   if (loading) return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
-      <p className="text-purple-600 dark:text-purple-400 text-xl font-semibold">Loading...</p>
+    <div className={`min-h-screen flex items-center justify-center ${darkMode ? "bg-gray-900" : "bg-green-50"}`}>
+      <div className="text-center">
+        <div className="w-16 h-16 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-green-600 font-semibold">Loading admin panel...</p>
+      </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
+    <div className={`min-h-screen flex ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
 
-      <nav className="bg-purple-700 dark:bg-gray-800 text-white px-6 py-4 flex justify-between items-center shadow-md">
-        <h1 className="text-xl font-bold">🏥 HMS — Admin Panel</h1>
-        <div className="flex items-center gap-4">
-          <button onClick={toggleDarkMode}
-            className="bg-purple-600 dark:bg-gray-700 border border-purple-500 dark:border-gray-600 px-3 py-1 rounded-lg text-sm hover:bg-purple-500 dark:hover:bg-gray-600 transition">
-            {darkMode ? "☀️ Light" : "🌙 Dark"}
-          </button>
-          <span className="text-sm">Welcome, Admin!</span>
-          <NotificationBell token={token} />
-          <button onClick={handleLogout}
-            className="bg-white text-purple-700 px-4 py-1 rounded-lg text-sm font-semibold hover:bg-purple-100 transition">
-            Logout
-          </button>
+      {/* Sidebar */}
+      <aside className={`${sidebarOpen ? "w-64" : "w-20"} transition-all duration-300 flex-shrink-0 ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border-r flex flex-col shadow-sm`}>
+        <div className={`p-5 border-b ${darkMode ? "border-gray-700" : "border-gray-100"} flex items-center justify-between`}>
+          <div className={`flex items-center gap-3 ${!sidebarOpen && "justify-center w-full"}`}>
+            <div className="w-9 h-9 bg-gradient-to-br from-green-500 to-green-700 rounded-xl flex items-center justify-center flex-shrink-0 shadow">
+              <span className="text-white text-lg">🏥</span>
+            </div>
+            {sidebarOpen && (
+              <div>
+                <p className={`font-black text-base ${darkMode ? "text-white" : "text-green-700"}`}>HMS</p>
+                <p className={`text-xs text-gray-400`}>Admin Panel</p>
+              </div>
+            )}
+          </div>
+          {sidebarOpen && <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600">◀</button>}
         </div>
-      </nav>
 
-      <div className="bg-white dark:bg-gray-800 shadow-sm px-6 py-2 flex gap-4 flex-wrap">
-        {["dashboard", "doctors", "patients", "appointments", "bills", "records", "analytics", "add-doctor"].map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold capitalize transition ${
-              activeTab === tab
-                ? "bg-purple-600 text-white"
-                : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            }`}>
-            {tab === "add-doctor" ? "Add Doctor" : tab === "analytics" ? "📊 Analytics" : tab === "records" ? "📁 Records" : tab}
-          </button>
-        ))}
-      </div>
-
-      <div className="p-6 max-w-6xl mx-auto">
-
-        {activeTab === "dashboard" && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">Hospital Overview</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 border-l-4 border-purple-500">
-                <p className="text-gray-500 dark:text-gray-400 text-sm">Total Doctors</p>
-                <p className="text-4xl font-bold text-purple-600 mt-2">{doctors.length}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 border-l-4 border-blue-500">
-                <p className="text-gray-500 dark:text-gray-400 text-sm">Total Patients</p>
-                <p className="text-4xl font-bold text-blue-600 mt-2">{patients.length}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 border-l-4 border-yellow-500">
-                <p className="text-gray-500 dark:text-gray-400 text-sm">Total Appointments</p>
-                <p className="text-4xl font-bold text-yellow-500 mt-2">{appointments.length}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 border-l-4 border-green-500">
-                <p className="text-gray-500 dark:text-gray-400 text-sm">Completed</p>
-                <p className="text-4xl font-bold text-green-500 mt-2">
-                  {appointments.filter(a => a.status === "completed").length}
-                </p>
+        {sidebarOpen && (
+          <div className={`mx-3 mt-4 p-3 rounded-2xl ${darkMode ? "bg-gray-700" : "bg-green-50"}`}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-green-800 rounded-full flex items-center justify-center text-white font-black text-sm shadow">A</div>
+              <div>
+                <p className={`font-semibold text-sm ${darkMode ? "text-white" : "text-gray-800"}`}>Administrator</p>
+                <p className="text-xs text-green-500">Full Access</p>
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mt-6">
-              <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Recent Appointments</h3>
-              {appointments.length === 0 ? (
-                <p className="text-gray-400 text-sm">No appointments yet.</p>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-gray-500 dark:text-gray-400 border-b dark:border-gray-600">
-                      <th className="pb-2">Patient</th>
-                      <th className="pb-2">Doctor</th>
-                      <th className="pb-2">Date</th>
-                      <th className="pb-2">Status</th>
-                    </tr>
+          </div>
+        )}
+
+        <nav className="flex-1 p-3 mt-2 space-y-1">
+          {navItems.map((item) => (
+            <button key={item.id} onClick={() => setActiveTab(item.id)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                activeTab === item.id ? "bg-green-600 text-white shadow-md"
+                : darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-gray-100"
+              } ${!sidebarOpen && "justify-center"}`}>
+              <span className="text-base flex-shrink-0">{item.icon}</span>
+              {sidebarOpen && <span>{item.label}</span>}
+            </button>
+          ))}
+        </nav>
+
+        <div className={`p-3 border-t ${darkMode ? "border-gray-700" : "border-gray-100"} space-y-1`}>
+          <button onClick={toggleDarkMode}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${
+              darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-gray-100"
+            } ${!sidebarOpen && "justify-center"}`}>
+            <span>{darkMode ? "☀️" : "🌙"}</span>
+            {sidebarOpen && <span>{darkMode ? "Light Mode" : "Dark Mode"}</span>}
+          </button>
+          <button onClick={handleLogout}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition ${darkMode && "hover:bg-red-900 hover:bg-opacity-30"} ${!sidebarOpen && "justify-center"}`}>
+            <span>🚪</span>
+            {sidebarOpen && <span>Logout</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className={`px-6 py-4 border-b flex items-center justify-between ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} shadow-sm`}>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSidebarOpen(!sidebarOpen)}
+              className={`p-2 rounded-lg ${darkMode ? "hover:bg-gray-700 text-gray-400" : "hover:bg-gray-100 text-gray-500"}`}>☰</button>
+            <div>
+              <h1 className={`font-bold text-lg ${darkMode ? "text-white" : "text-gray-800"}`}>
+                {navItems.find(n => n.id === activeTab)?.label || "Dashboard"}
+              </h1>
+              <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                {new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <NotificationBell token={token} />
+            <div className="hidden sm:block text-right">
+              <p className={`text-sm font-semibold ${darkMode ? "text-white" : "text-gray-700"}`}>Welcome, Admin! 👋</p>
+              <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>{stats.appointments} total appointments</p>
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-y-auto p-6">
+
+          {/* DASHBOARD */}
+          {activeTab === "dashboard" && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  { label: "Total Doctors", value: stats.doctors, icon: "👨‍⚕️", bg: "from-green-500 to-green-600" },
+                  { label: "Total Patients", value: stats.patients, icon: "🧑‍🤝‍🧑", bg: "from-blue-500 to-blue-600" },
+                  { label: "Appointments", value: stats.appointments, icon: "📅", bg: "from-purple-500 to-purple-600" },
+                  { label: "Total Revenue", value: `₹${stats.revenue}`, icon: "💰", bg: "from-amber-400 to-amber-500" },
+                ].map((stat) => (
+                  <div key={stat.label} className={`rounded-2xl p-5 text-white bg-gradient-to-br ${stat.bg} shadow-lg`}>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-white text-opacity-80 text-xs font-medium">{stat.label}</p>
+                        <p className="text-3xl font-black mt-1">{stat.value}</p>
+                      </div>
+                      <div className="text-3xl opacity-80">{stat.icon}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className={card}>
+                <div className={`px-6 py-4 border-b flex justify-between items-center ${darkMode ? "border-gray-700" : "border-gray-100"}`}>
+                  <h3 className={`font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>Recent Appointments</h3>
+                  <button onClick={() => setActiveTab("appointments")} className="text-green-500 text-sm font-semibold hover:underline">View all →</button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className={darkMode ? "bg-gray-700" : "bg-gray-50"}>
+                      <tr>{["Patient","Doctor","Date","Time","Status"].map(h => <th key={h} className={th}>{h}</th>)}</tr>
+                    </thead>
+                    <tbody className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-50"}`}>
+                      {appointments.slice(0, 5).map(apt => (
+                        <tr key={apt._id} className={`transition ${darkMode ? "hover:bg-gray-750" : "hover:bg-gray-50"}`}>
+                          <td className={td}>{apt.patient?.name || "—"}</td>
+                          <td className={td}>{apt.doctor?.name || "—"}</td>
+                          <td className={td}>{apt.date}</td>
+                          <td className={td}>{apt.time}</td>
+                          <td className={td}><span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(apt.status)}`}>{apt.status}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className={`${card} p-5`}>
+                  <p className={`text-xs font-semibold uppercase tracking-wide mb-3 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Appointment Status</p>
+                  {["pending","confirmed","completed","cancelled"].map(s => (
+                    <div key={s} className="flex justify-between items-center py-1.5">
+                      <span className={`text-sm capitalize ${darkMode ? "text-gray-300" : "text-gray-600"}`}>{s}</span>
+                      <span className={`text-sm font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>{appointments.filter(a => a.status === s).length}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className={`${card} p-5`}>
+                  <p className={`text-xs font-semibold uppercase tracking-wide mb-3 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Bill Overview</p>
+                  {[
+                    { label: "Total Bills", val: bills.length },
+                    { label: "Paid", val: bills.filter(b => b.status === "paid").length },
+                    { label: "Unpaid", val: bills.filter(b => b.status === "unpaid").length },
+                    { label: "Revenue", val: `₹${stats.revenue}` },
+                  ].map(item => (
+                    <div key={item.label} className="flex justify-between items-center py-1.5">
+                      <span className={`text-sm ${darkMode ? "text-gray-300" : "text-gray-600"}`}>{item.label}</span>
+                      <span className={`text-sm font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>{item.val}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className={`${card} p-5`}>
+                  <p className={`text-xs font-semibold uppercase tracking-wide mb-3 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Top Specializations</p>
+                  {[...new Set(doctors.map(d => d.specialization))].filter(Boolean).slice(0, 5).map(spec => (
+                    <div key={spec} className="flex justify-between items-center py-1.5">
+                      <span className={`text-sm ${darkMode ? "text-gray-300" : "text-gray-600"}`}>{spec}</span>
+                      <span className={`text-sm font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>{doctors.filter(d => d.specialization === spec).length}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* DOCTORS */}
+          {activeTab === "doctors" && (
+            <div className="space-y-4">
+              <div className="flex gap-3 items-center">
+                <SearchBar value={searchDoctors} onChange={(v) => { setSearchDoctors(v); setDoctorPage(1); }} placeholder="Search by name or specialization..." darkMode={darkMode} />
+                <button onClick={() => setActiveTab("add-doctor")}
+                  className="bg-green-600 text-white text-sm px-4 py-2.5 rounded-xl font-semibold hover:bg-green-700 transition shadow whitespace-nowrap">
+                  ➕ Add Doctor
+                </button>
+              </div>
+              <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Showing {filteredDoctors.length} of {doctors.length} doctors</p>
+              {paginate(filteredDoctors, doctorPage).map(doc => (
+                <div key={doc._id} className={`${card} p-5`}>
+                  {editingDoctor === doc._id ? (
+                    <div>
+                      <p className={`font-bold mb-4 ${darkMode ? "text-white" : "text-gray-800"}`}>Edit Doctor</p>
+                      <form onSubmit={handleEditDoctor} className="grid grid-cols-2 gap-3">
+                        {["name","phone","specialization","experience","fees","address"].map(field => (
+                          <div key={field}>
+                            <label className={label}>{field.charAt(0).toUpperCase() + field.slice(1)}</label>
+                            <input className={input} value={editDoctorForm[field] || ""}
+                              onChange={e => setEditDoctorForm({ ...editDoctorForm, [field]: e.target.value })} />
+                          </div>
+                        ))}
+                        <div className="col-span-2 flex gap-2">
+                          <button type="submit" className="bg-green-600 text-white text-sm px-4 py-2 rounded-xl font-semibold hover:bg-green-700">Save</button>
+                          <button type="button" onClick={() => setEditingDoctor(null)} className="bg-gray-200 text-gray-600 text-sm px-4 py-2 rounded-xl font-semibold hover:bg-gray-300">Cancel</button>
+                        </div>
+                      </form>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-700 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow">
+                          {doc.name?.charAt(0)?.toUpperCase()}
+                        </div>
+                        <div>
+                          <p className={`font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>{doc.name}</p>
+                          <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>{doc.specialization} • {doc.experience} yrs exp • ₹{doc.fees} fees</p>
+                          <p className={`text-xs mt-0.5 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>{doc.userId?.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => { setEditingDoctor(doc._id); setEditDoctorForm({ name: doc.name, phone: doc.phone, specialization: doc.specialization, experience: doc.experience, fees: doc.fees, address: doc.address }); }}
+                          className="bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-600 font-semibold">✏️ Edit</button>
+                        <button onClick={() => handleDeleteDoctor(doc._id)}
+                          className="bg-red-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-red-600 font-semibold">🗑️ Delete</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <Pagination currentPage={doctorPage} totalPages={totalPages(filteredDoctors)} onPageChange={setDoctorPage} darkMode={darkMode} />
+            </div>
+          )}
+
+          {/* ADD DOCTOR */}
+          {activeTab === "add-doctor" && (
+            <div className="max-w-2xl">
+              <div className={card}>
+                <div className={`px-6 py-4 border-b ${darkMode ? "border-gray-700" : "border-gray-100"}`}>
+                  <h3 className={`font-bold text-lg ${darkMode ? "text-white" : "text-gray-800"}`}>Register New Doctor</h3>
+                  <p className={`text-xs mt-1 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Fill all fields to add a doctor to the system</p>
+                </div>
+                <div className="p-6">
+                  <form onSubmit={handleAddDoctor} className="grid grid-cols-2 gap-4">
+                    {[
+                      { label: "Full Name", name: "name", type: "text", col: 2 },
+                      { label: "Email", name: "email", type: "email", col: 1 },
+                      { label: "Password", name: "password", type: "password", col: 1 },
+                      { label: "Phone", name: "phone", type: "text", col: 1 },
+                      { label: "Specialization", name: "specialization", type: "text", col: 1 },
+                      { label: "Experience (yrs)", name: "experience", type: "number", col: 1 },
+                      { label: "Consultation Fees (₹)", name: "fees", type: "number", col: 1 },
+                      { label: "Address", name: "address", type: "text", col: 2 },
+                    ].map(f => (
+                      <div key={f.name} className={f.col === 2 ? "col-span-2" : ""}>
+                        <label className={label}>{f.label}</label>
+                        <input type={f.type} required value={doctorForm[f.name]}
+                          onChange={e => setDoctorForm({ ...doctorForm, [f.name]: e.target.value })}
+                          className={input} />
+                      </div>
+                    ))}
+                    <div className="col-span-2">
+                      <button type="submit" className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-xl font-bold hover:shadow-lg transition-all">
+                        ➕ Add Doctor
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* PATIENTS */}
+          {activeTab === "patients" && (
+            <div className="space-y-4">
+              <SearchBar value={searchPatients} onChange={(v) => { setSearchPatients(v); setPatientPage(1); }} placeholder="Search by name or phone..." darkMode={darkMode} />
+              <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Showing {filteredPatients.length} of {patients.length} patients</p>
+              {paginate(filteredPatients, patientPage).map(p => (
+                <div key={p._id} className={`${card} p-5 flex items-center justify-between`}>
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow">
+                      {p.name?.charAt(0)?.toUpperCase()}
+                    </div>
+                    <div>
+                      <p className={`font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>{p.name}</p>
+                      <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                        {p.age ? `Age: ${p.age}` : ""} {p.gender ? `• ${p.gender}` : ""} {p.phone ? `• ${p.phone}` : ""}
+                      </p>
+                      <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>{p.userId?.email}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => handleDeletePatient(p._id)}
+                    className="bg-red-500 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-red-600 font-semibold">🗑️ Delete</button>
+                </div>
+              ))}
+              <Pagination currentPage={patientPage} totalPages={totalPages(filteredPatients)} onPageChange={setPatientPage} darkMode={darkMode} />
+            </div>
+          )}
+
+          {/* APPOINTMENTS */}
+          {activeTab === "appointments" && (
+            <div className={`${card} overflow-hidden`}>
+              <div className={`px-6 py-4 border-b flex items-center gap-3 flex-wrap ${darkMode ? "border-gray-700" : "border-gray-100"}`}>
+                <h3 className={`font-bold flex-shrink-0 ${darkMode ? "text-white" : "text-gray-800"}`}>All Appointments ({filteredAppointments.length})</h3>
+                <SearchBar value={searchAppointments} onChange={(v) => { setSearchAppointments(v); setAppointmentPage(1); }} placeholder="Search patient, doctor, status..." darkMode={darkMode} />
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className={darkMode ? "bg-gray-700" : "bg-gray-50"}>
+                    <tr>{["Patient","Doctor","Date","Time","Notes","Status","Actions"].map(h => <th key={h} className={th}>{h}</th>)}</tr>
                   </thead>
-                  <tbody>
-                    {appointments.slice(0, 5).map((apt) => (
-                      <tr key={apt._id} className="border-b dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="py-2 text-gray-700 dark:text-gray-300">{apt.patient?.name || "N/A"}</td>
-                        <td className="py-2 text-gray-700 dark:text-gray-300">{apt.doctor?.name || "N/A"}</td>
-                        <td className="py-2 text-gray-700 dark:text-gray-300">{apt.date}</td>
-                        <td className="py-2">
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(apt.status)}`}>{apt.status}</span>
+                  <tbody className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-50"}`}>
+                    {paginate(filteredAppointments, appointmentPage).map(apt => (
+                      <tr key={apt._id} className={`transition ${darkMode ? "hover:bg-gray-750" : "hover:bg-gray-50"}`}>
+                        <td className={td}>{apt.patient?.name || "—"}</td>
+                        <td className={td}>{apt.doctor?.name || "—"}</td>
+                        <td className={td}>{apt.date}</td>
+                        <td className={td}>{apt.time}</td>
+                        <td className={`${td} max-w-xs truncate`}>{apt.notes || "—"}</td>
+                        <td className={td}>
+                          <select value={apt.status} onChange={e => handleUpdateAppointmentStatus(apt._id, e.target.value)}
+                            className={`border rounded-lg px-2 py-1 text-xs font-semibold focus:outline-none ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "border-gray-200"}`}>
+                            {["pending","confirmed","completed","cancelled"].map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        </td>
+                        <td className={td}>
+                          <button onClick={() => handleDeleteAppointment(apt._id)}
+                            className="bg-red-500 text-white text-xs px-2 py-1 rounded-lg hover:bg-red-600 font-semibold">🗑️</button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "doctors" && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">All Doctors ({doctors.length})</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {doctors.map((doc) => (
-                <div key={doc._id} className="bg-white dark:bg-gray-800 rounded-2xl shadow p-5 flex justify-between items-start">
-                  <div className="flex gap-3">
-                    <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center text-2xl">👨‍⚕️</div>
-                    <div>
-                      <p className="font-semibold text-gray-700 dark:text-gray-200">{doc.name}</p>
-                      <p className="text-sm text-purple-600 dark:text-purple-400">{doc.specialization}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Experience: {doc.experience} yrs</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Fees: ₹{doc.fees}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{doc.address}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <button onClick={() => setEditingDoctor(doc)}
-                      className="bg-purple-100 text-purple-600 px-3 py-1 rounded-lg text-xs font-semibold hover:bg-purple-200">Edit</button>
-                    <button onClick={() => handleDeleteDoctor(doc._id)}
-                      className="bg-red-100 text-red-600 px-3 py-1 rounded-lg text-xs font-semibold hover:bg-red-200">Delete</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "patients" && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">All Patients ({patients.length})</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {patients.map((pat) => (
-                <div key={pat._id} className="bg-white dark:bg-gray-800 rounded-2xl shadow p-5 flex justify-between items-start">
-                  <div className="flex gap-3">
-                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-2xl">👤</div>
-                    <div>
-                      <p className="font-semibold text-gray-700 dark:text-gray-200">{pat.name}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Age: {pat.age} | {pat.gender}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Phone: {pat.phone}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">History: {pat.medicalHistory}</p>
-                    </div>
-                  </div>
-                  <button onClick={() => handleDeletePatient(pat._id)}
-                    className="bg-red-100 text-red-600 px-3 py-1 rounded-lg text-xs font-semibold hover:bg-red-200">Delete</button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "appointments" && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">All Appointments ({appointments.length})</h2>
-            <div className="space-y-4">
-              {appointments.map((apt) => (
-                <div key={apt._id} className="bg-white dark:bg-gray-800 rounded-2xl shadow p-5">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-semibold text-gray-700 dark:text-gray-200">{apt.patient?.name || "Patient"}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Doctor: {apt.doctor?.name || "N/A"} — {apt.doctor?.specialization}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">📅 {apt.date} at ⏰ {apt.time}</p>
-                      {apt.notes && <p className="text-sm text-gray-400 mt-1">📝 {apt.notes}</p>}
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(apt.status)}`}>{apt.status}</span>
-                      <div className="flex gap-2 flex-wrap justify-end">
-                        {apt.status === "pending" && (
-                          <button onClick={() => handleUpdateStatus(apt._id, "confirmed")}
-                            className="bg-blue-100 text-blue-600 px-3 py-1 rounded-lg text-xs font-semibold hover:bg-blue-200">Confirm</button>
-                        )}
-                        {apt.status === "confirmed" && (
-                          <button onClick={() => handleUpdateStatus(apt._id, "completed")}
-                            className="bg-green-100 text-green-600 px-3 py-1 rounded-lg text-xs font-semibold hover:bg-green-200">Complete</button>
-                        )}
-                        {(apt.status === "pending" || apt.status === "confirmed") && (
-                          <>
-                            <button onClick={() => { setReschedulingId(apt._id); setRescheduleData({ date: apt.date, time: apt.time }); setRescheduleMsg(""); }}
-                              className="bg-purple-100 text-purple-600 px-3 py-1 rounded-lg text-xs font-semibold hover:bg-purple-200">Reschedule</button>
-                            <button onClick={() => handleUpdateStatus(apt._id, "cancelled")}
-                              className="bg-red-100 text-red-600 px-3 py-1 rounded-lg text-xs font-semibold hover:bg-red-200">Cancel</button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {reschedulingId === apt._id && <RescheduleForm />}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "bills" && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">All Bills ({bills.length})</h2>
-            {bills.length === 0 ? (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 text-center">
-                <p className="text-gray-400">No bills yet.</p>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {bills.map((bill) => (
-                  <div key={bill._id} className="bg-white dark:bg-gray-800 rounded-2xl shadow p-5 flex justify-between items-center">
-                    <div>
-                      <p className="font-semibold text-gray-700 dark:text-gray-200">{bill.patient?.name || "Patient"}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Doctor: {bill.doctor?.name || "N/A"} — {bill.doctor?.specialization}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">📅 {bill.date}</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <p className="text-2xl font-bold text-purple-600">₹{bill.amount}</p>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${bill.status === "paid" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
-                        {bill.status}
-                      </span>
-                      <button onClick={() => handleDownloadPDF(bill)}
-                        className="bg-purple-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-purple-600">
-                        📄 Download PDF
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── RECORDS TAB ── */}
-        {activeTab === "records" && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">📁 All Medical Records ({allRecords.length})</h2>
-
-            {/* Search */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-4 mb-6">
-              <input
-                type="text"
-                placeholder="Search by patient name or record title..."
-                value={recordSearch}
-                onChange={(e) => setRecordSearch(e.target.value)}
-                className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400"
-              />
-            </div>
-
-            {filteredRecords.length === 0 ? (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 text-center">
-                <p className="text-4xl mb-2">📁</p>
-                <p className="text-gray-400">{recordSearch ? "No records found matching your search." : "No medical records uploaded yet."}</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredRecords.map((record) => (
-                  <div key={record._id} className="bg-white dark:bg-gray-800 rounded-2xl shadow p-5 flex justify-between items-center">
-                    <div>
-                      <p className="font-semibold text-gray-700 dark:text-gray-200">📄 {record.title}</p>
-                      <p className="text-sm text-purple-600 dark:text-purple-400 mt-1">
-                        Patient: {record.patient?.name || "N/A"}
-                      </p>
-                      {record.description && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{record.description}</p>
-                      )}
-                      <p className="text-xs text-gray-400 mt-1">
-                        Uploaded: {new Date(record.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                     <a href={record.fileUrl.replace("/raw/upload/", "/image/upload/").replace(".pdf", ".jpg")}
-  target="_blank" rel="noreferrer"
-  className="bg-blue-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-blue-600">
-  👁️ View
-</a>
-<button
-  onClick={() => handleDownloadRecord(record.fileUrl, record.title)}
-  className="bg-green-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-green-600">
-  ⬇️ Download
-</button>
-                      <button onClick={() => handleDeleteRecord(record._id)}
-                        className="bg-red-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-red-600">
-                        🗑️ Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "analytics" && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">📊 Analytics</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 border-l-4 border-purple-500">
-                <p className="text-gray-500 dark:text-gray-400 text-sm">Total Revenue</p>
-                <p className="text-4xl font-bold text-purple-600 mt-2">₹{bills.reduce((sum, b) => sum + (b.amount || 0), 0)}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 border-l-4 border-green-500">
-                <p className="text-gray-500 dark:text-gray-400 text-sm">Paid Bills</p>
-                <p className="text-4xl font-bold text-green-600 mt-2">₹{bills.filter(b => b.status === "paid").reduce((sum, b) => sum + (b.amount || 0), 0)}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 border-l-4 border-red-500">
-                <p className="text-gray-500 dark:text-gray-400 text-sm">Unpaid Bills</p>
-                <p className="text-4xl font-bold text-red-500 mt-2">₹{bills.filter(b => b.status === "unpaid").reduce((sum, b) => sum + (b.amount || 0), 0)}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 border-l-4 border-blue-500">
-                <p className="text-gray-500 dark:text-gray-400 text-sm">Total Appointments</p>
-                <p className="text-4xl font-bold text-blue-600 mt-2">{appointments.length}</p>
+              <div className="p-4">
+                <Pagination currentPage={appointmentPage} totalPages={totalPages(filteredAppointments)} onPageChange={setAppointmentPage} darkMode={darkMode} />
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Appointment Status</h3>
-                <ResponsiveContainer width="100%" height={250}>
-                  <PieChart>
-                    <Pie data={[
-                      { name: "Pending", value: appointments.filter(a => a.status === "pending").length },
-                      { name: "Confirmed", value: appointments.filter(a => a.status === "confirmed").length },
-                      { name: "Completed", value: appointments.filter(a => a.status === "completed").length },
-                      { name: "Cancelled", value: appointments.filter(a => a.status === "cancelled").length },
-                    ].filter(d => d.value > 0)}
-                      cx="50%" cy="50%" outerRadius={90} dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}`}>
-                      {["#f59e0b", "#3b82f6", "#22c55e", "#ef4444"].map((color, i) => (
-                        <Cell key={i} fill={color} />
-                      ))}
-                    </Pie>
-                    <Tooltip /><Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+          )}
+
+          {/* BILLS */}
+          {activeTab === "bills" && (
+            <div className={`${card} overflow-hidden`}>
+              <div className={`px-6 py-4 border-b flex items-center gap-3 flex-wrap ${darkMode ? "border-gray-700" : "border-gray-100"}`}>
+                <h3 className={`font-bold flex-shrink-0 ${darkMode ? "text-white" : "text-gray-800"}`}>All Bills ({filteredBills.length})</h3>
+                <SearchBar value={searchBills} onChange={(v) => { setSearchBills(v); setBillPage(1); }} placeholder="Search patient or status..." darkMode={darkMode} />
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Bill Status</h3>
-                <ResponsiveContainer width="100%" height={250}>
-                  <PieChart>
-                    <Pie data={[
-                      { name: "Paid", value: bills.filter(b => b.status === "paid").length },
-                      { name: "Unpaid", value: bills.filter(b => b.status === "unpaid").length },
-                    ].filter(d => d.value > 0)}
-                      cx="50%" cy="50%" outerRadius={90} dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}`}>
-                      <Cell fill="#22c55e" /><Cell fill="#ef4444" />
-                    </Pie>
-                    <Tooltip /><Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className={darkMode ? "bg-gray-700" : "bg-gray-50"}>
+                    <tr>{["Patient","Doctor","Date","Amount","Status","Actions"].map(h => <th key={h} className={th}>{h}</th>)}</tr>
+                  </thead>
+                  <tbody className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-50"}`}>
+                    {paginate(filteredBills, billPage).map(bill => (
+                      <tr key={bill._id} className={`transition ${darkMode ? "hover:bg-gray-750" : "hover:bg-gray-50"}`}>
+                        <td className={td}>{bill.patient?.name || "—"}</td>
+                        <td className={td}>{bill.doctor?.name || "—"}</td>
+                        <td className={td}>{bill.date}</td>
+                        <td className={`${td} font-bold text-green-600`}>₹{bill.amount}</td>
+                        <td className={td}>
+                          <select value={bill.status} onChange={e => handleUpdateBillStatus(bill._id, e.target.value)}
+                            className={`border rounded-lg px-2 py-1 text-xs font-semibold focus:outline-none ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "border-gray-200"}`}>
+                            {["paid","unpaid"].map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        </td>
+                        <td className={td}>
+                          <button onClick={() => handleDeleteBill(bill._id)}
+                            className="bg-red-500 text-white text-xs px-2 py-1 rounded-lg hover:bg-red-600 font-semibold">🗑️</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 md:col-span-2">
-                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Appointments per Doctor</h3>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={doctors.map(doc => ({
-                    name: doc.name,
-                    appointments: appointments.filter(a => a.doctor?._id === doc._id || a.doctor === doc._id).length,
-                  }))}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="appointments" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 md:col-span-2">
-                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Revenue per Doctor (₹)</h3>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={doctors.map(doc => ({
-                    name: doc.name,
-                    revenue: bills.filter(b => b.doctor?._id === doc._id || b.doctor === doc._id).reduce((sum, b) => sum + (b.amount || 0), 0),
-                  }))}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip formatter={(value) => `₹${value}`} />
-                    <Bar dataKey="revenue" fill="#22c55e" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="p-4">
+                <Pagination currentPage={billPage} totalPages={totalPages(filteredBills)} onPageChange={setBillPage} darkMode={darkMode} />
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {activeTab === "add-doctor" && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">Add New Doctor</h2>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 max-w-lg">
-              {doctorMsg && <div className="bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 px-4 py-3 rounded-lg mb-4 text-sm">✅ {doctorMsg}</div>}
-              {doctorErr && <div className="bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300 px-4 py-3 rounded-lg mb-4 text-sm">❌ {doctorErr}</div>}
-              <form onSubmit={handleAddDoctor} className="space-y-4">
-                {[
-                  { label: "Full Name", name: "name", type: "text", placeholder: "Dr. John Smith" },
-                  { label: "Email", name: "email", type: "email", placeholder: "doctor@hospital.com" },
-                  { label: "Password", name: "password", type: "password", placeholder: "Min 6 characters" },
-                  { label: "Phone", name: "phone", type: "text", placeholder: "9999999999" },
-                  { label: "Specialization", name: "specialization", type: "text", placeholder: "Cardiologist" },
-                  { label: "Experience (years)", name: "experience", type: "number", placeholder: "5" },
-                  { label: "Fees (₹)", name: "fees", type: "number", placeholder: "500" },
-                  { label: "Address", name: "address", type: "text", placeholder: "Hospital name, City" },
-                ].map((field) => (
-                  <div key={field.name}>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{field.label}</label>
-                    <input type={field.type} placeholder={field.placeholder} value={newDoctor[field.name]}
-                      onChange={(e) => setNewDoctor({ ...newDoctor, [field.name]: e.target.value })}
-                      required
-                      className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400" />
-                  </div>
-                ))}
-                <button type="submit"
-                  className="w-full bg-purple-600 text-white py-2 rounded-lg font-semibold hover:bg-purple-700 transition">
-                  Add Doctor
-                </button>
-              </form>
+          {/* USERS */}
+          {activeTab === "users" && (
+            <div className={`${card} overflow-hidden`}>
+              <div className={`px-6 py-4 border-b flex items-center gap-3 flex-wrap ${darkMode ? "border-gray-700" : "border-gray-100"}`}>
+                <h3 className={`font-bold flex-shrink-0 ${darkMode ? "text-white" : "text-gray-800"}`}>All Users ({filteredUsers.length})</h3>
+                <SearchBar value={searchUsers} onChange={(v) => { setSearchUsers(v); setUserPage(1); }} placeholder="Search name, email or role..." darkMode={darkMode} />
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className={darkMode ? "bg-gray-700" : "bg-gray-50"}>
+                    <tr>{["Name","Email","Role","Actions"].map(h => <th key={h} className={th}>{h}</th>)}</tr>
+                  </thead>
+                  <tbody className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-50"}`}>
+                    {paginate(filteredUsers, userPage).map(u => (
+                      <tr key={u._id} className={`transition ${darkMode ? "hover:bg-gray-750" : "hover:bg-gray-50"}`}>
+                        <td className={td}>{u.name || "—"}</td>
+                        <td className={td}>{u.email}</td>
+                        <td className={td}>
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            u.role === "admin" ? "bg-purple-100 text-purple-700" :
+                            u.role === "doctor" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
+                          }`}>{u.role}</span>
+                        </td>
+                        <td className={td}>
+                          {u.role !== "admin" && (
+                            <button onClick={() => handleDeleteUser(u._id)}
+                              className="bg-red-500 text-white text-xs px-2 py-1 rounded-lg hover:bg-red-600 font-semibold">🗑️ Delete</button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="p-4">
+                <Pagination currentPage={userPage} totalPages={totalPages(filteredUsers)} onPageChange={setUserPage} darkMode={darkMode} />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
+        </main>
       </div>
-
-      {editingDoctor && (
-        <DoctorEditModal
-          doctor={editingDoctor}
-          token={token}
-          onUpdate={fetchData}
-          onClose={() => setEditingDoctor(null)}
-        />
-      )}
-
     </div>
   );
 };
