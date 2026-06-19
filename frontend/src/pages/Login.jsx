@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
+import Logo from "../components/Logo";
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -43,15 +44,9 @@ const Login = () => {
         <div className="absolute top-1/2 right-10 w-40 h-40 bg-white rounded-full opacity-5"></div>
 
         {/* Logo */}
-        <div className="relative flex items-center gap-3">
-          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg">
-            <span className="text-2xl">🏥</span>
-          </div>
-          <div>
-            <p className="text-white font-black text-2xl">HMS</p>
-            <p className="text-blue-200 text-xs">Hospital Management</p>
-          </div>
-        </div>
+        <div className="relative">
+  <Logo sidebarOpen={true} darkMode={true} />
+</div>
 
         {/* Center content */}
         <div className="relative">
@@ -83,7 +78,7 @@ const Login = () => {
 
         {/* Bottom quote */}
         <div className="relative bg-white bg-opacity-10 backdrop-blur-sm rounded-2xl p-5 border border-white border-opacity-20">
-          <p className="text-blue-100 text-sm italic">"HMS has transformed how we manage our hospital operations. Highly recommended!"</p>
+          <p className="text-blue-100 text-sm italic">"HealSync has transformed how we manage our hospital operations. Highly recommended!"</p>
           <p className="text-blue-300 text-xs mt-2 font-semibold">— Dr. Rakesh Gupta, Cardiologist</p>
         </div>
       </div>
@@ -92,13 +87,10 @@ const Login = () => {
       <div className="flex-1 flex items-center justify-center bg-gray-50 px-6 py-12">
         <div className="w-full max-w-md">
 
-          {/* Mobile logo */}
-          <div className="flex lg:hidden items-center gap-2 justify-center mb-8">
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-              <span className="text-xl">🏥</span>
-            </div>
-            <span className="text-blue-700 font-black text-xl">HMS</span>
-          </div>
+{/* Mobile logo view - updated to HealSync */}
+<div className="lg:hidden mb-8 flex justify-center">
+  <Logo darkMode={false} sidebarOpen={true} />
+</div>
 
           <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
             <div className="mb-8">
@@ -180,7 +172,7 @@ const Login = () => {
           </div>
 
           <p className="text-center text-gray-400 text-xs mt-6">
-            © 2026 HMS Hospital Management System
+        © 2026 HealSync. All rights reserved.
           </p>
         </div>
       </div>

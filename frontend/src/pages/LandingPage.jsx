@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import Logo from "../components/Logo";
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -36,44 +37,38 @@ const LandingPage = () => {
 
       {/* Navbar */}
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-white shadow-lg border-b border-gray-100"
-          : "bg-transparent"
-      }`}>
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-white text-xl">🏥</span>
-            </div>
-            <div>
-              <span className={`text-xl font-black ${scrolled ? "text-blue-700" : "text-white"}`}>HMS</span>
-              <span className={`text-xs block leading-none ${scrolled ? "text-gray-400" : "text-blue-200"}`}>Hospital Management</span>
-            </div>
-          </div>
-          <div className="hidden md:flex items-center gap-8">
-            {["Features", "How it Works", "Roles"].map(item => (
-              <a key={item} href={`#${item.toLowerCase().replace(" ", "-")}`}
-                className={`text-sm font-medium hover:text-blue-400 transition ${scrolled ? "text-gray-600" : "text-white"}`}>
-                {item}
-              </a>
-            ))}
-          </div>
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate("/login")}
-              className={`text-sm font-semibold px-5 py-2 rounded-xl transition ${
-                scrolled
-                  ? "text-blue-600 hover:bg-blue-50"
-                  : "text-white hover:bg-white hover:bg-opacity-10"
-              }`}>
-              Login
-            </button>
-            <button onClick={() => navigate("/register")}
-              className="bg-gradient-to-r from-blue-500 to-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200">
-              Get Started →
-            </button>
-          </div>
-        </div>
-      </nav>
+  scrolled ? "bg-white shadow-lg border-b border-gray-100" : "bg-transparent"
+}`}>
+  <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+    
+    {/* New Logo Integration */}
+    <div className="scale-75 origin-left">
+      <Logo darkMode={!scrolled} sidebarOpen={true} />
+    </div>
+
+    <div className="hidden md:flex items-center gap-8">
+      {["Features", "How it Works", "Roles"].map(item => (
+        <a key={item} href={`#${item.toLowerCase().replace(" ", "-")}`}
+          className={`text-sm font-medium hover:text-blue-400 transition ${scrolled ? "text-gray-600" : "text-white"}`}>
+          {item}
+        </a>
+      ))}
+    </div>
+    
+    <div className="flex items-center gap-3">
+      <button onClick={() => navigate("/login")}
+        className={`text-sm font-semibold px-5 py-2 rounded-xl transition ${
+          scrolled ? "text-blue-600 hover:bg-blue-50" : "text-white hover:bg-white hover:bg-opacity-10"
+        }`}>
+        Login
+      </button>
+      <button onClick={() => navigate("/register")}
+        className="bg-gradient-to-r from-blue-500 to-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200">
+        Get Started →
+      </button>
+    </div>
+  </div>
+</nav>
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden"
@@ -332,26 +327,23 @@ const LandingPage = () => {
 
       {/* Footer */}
       <footer className="bg-gray-950 text-gray-400 px-8 py-12">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-                <span className="text-white">🏥</span>
-              </div>
-              <div>
-                <p className="text-white font-black text-lg">HMS</p>
-                <p className="text-gray-500 text-xs">Hospital Management System</p>
-              </div>
-            </div>
-            <div className="flex gap-8 text-sm">
-              {["Features", "How it Works", "Login", "Register"].map(item => (
-                <a key={item} href="#" className="hover:text-white transition">{item}</a>
-              ))}
-            </div>
-            <p className="text-sm">© 2026 HMS. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+  <div className="max-w-6xl mx-auto">
+    <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+      
+      {/* Footer Logo */}
+      <div className="scale-90">
+        <Logo darkMode={true} sidebarOpen={true} />
+      </div>
+
+      <div className="flex gap-8 text-sm">
+        {["Features", "How it Works", "Login", "Register"].map(item => (
+          <a key={item} href="#!" className="hover:text-white transition">{item}</a>
+        ))}
+      </div>
+      <p className="text-sm">© 2026 HealSync. All rights reserved.</p>
+    </div>
+  </div>
+</footer>
 
     </div>
   );

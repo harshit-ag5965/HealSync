@@ -2,10 +2,12 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import useDarkMode from "../hooks/useDarkMode";
 import NotificationBell from "../components/NotificationBell";
 import SearchBar from "../components/SearchBar";
 import Pagination from "../components/Pagination";
+import Logo from "../components/Logo";
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -46,6 +48,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (!token) { navigate("/login"); return; }
     fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchAll = async () => {
@@ -216,6 +219,16 @@ const AdminDashboard = () => {
     { id: "users", icon: "👤", label: "Users" },
   ];
 
+  // Dummy Chart Data combined with actual stats
+  const chartData = [
+    { name: 'Jan', revenue: 4000, appointments: 24 },
+    { name: 'Feb', revenue: 3000, appointments: 18 },
+    { name: 'Mar', revenue: 5000, appointments: 29 },
+    { name: 'Apr', revenue: 4500, appointments: 25 },
+    { name: 'May', revenue: 6000, appointments: 32 },
+    { name: 'Jun', revenue: Math.max(stats.revenue, 7000), appointments: Math.max(stats.appointments, 40) }
+  ];
+
   if (loading) return (
     <div className={`min-h-screen flex items-center justify-center ${darkMode ? "bg-gray-900" : "bg-green-50"}`}>
       <div className="text-center">
@@ -228,22 +241,23 @@ const AdminDashboard = () => {
   return (
     <div className={`min-h-screen flex ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
 
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className={`${sidebarOpen ? "w-64" : "w-20"} transition-all duration-300 flex-shrink-0 ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border-r flex flex-col shadow-sm`}>
-        <div className={`p-5 border-b ${darkMode ? "border-gray-700" : "border-gray-100"} flex items-center justify-between`}>
-          <div className={`flex items-center gap-3 ${!sidebarOpen && "justify-center w-full"}`}>
-            <div className="w-9 h-9 bg-gradient-to-br from-green-500 to-green-700 rounded-xl flex items-center justify-center flex-shrink-0 shadow">
-              <span className="text-white text-lg">🏥</span>
-            </div>
-            {sidebarOpen && (
-              <div>
-                <p className={`font-black text-base ${darkMode ? "text-white" : "text-green-700"}`}>HMS</p>
-                <p className={`text-xs text-gray-400`}>Admin Panel</p>
-              </div>
-            )}
-          </div>
-          {sidebarOpen && <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600">◀</button>}
-        </div>
+      <aside className={`fixed md:relative z-50 h-screen transition-all duration-300 flex-shrink-0 flex flex-col shadow-sm ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border-r ${sidebarOpen ? "translate-x-0 w-64" : "-translate-x-full w-64 md:translate-x-0 md:w-20"}`}>
+       <div className={`p-5 border-b ${darkMode ? "border-gray-700" : "border-gray-100"} flex items-center justify-between`}>
+  
+  {/* 🚀 Your brand new SVG Logo Component */}
+  <Logo darkMode={darkMode} sidebarOpen={sidebarOpen} />
+
+  {sidebarOpen && <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600">◀</button>}
+</div>
 
         {sidebarOpen && (
           <div className={`mx-3 mt-4 p-3 rounded-2xl ${darkMode ? "bg-gray-700" : "bg-green-50"}`}>
@@ -333,6 +347,47 @@ const AdminDashboard = () => {
                   </div>
                 ))}
               </div>
+
+              {/* --- ANALYTICS CHARTS --- */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className={`${card} p-5`}>
+                  <h3 className={`font-bold mb-4 ${darkMode ? "text-white" : "text-gray-800"}`}>Revenue Overview</h3>
+                  <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#374151" : "#f3f4f6"} vertical={false} />
+                        <XAxis dataKey="name" stroke={darkMode ? "#9ca3af" : "#6b7280"} fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke={darkMode ? "#9ca3af" : "#6b7280"} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `₹${value}`} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: darkMode ? "#1f2937" : "#fff", borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }}
+                          itemStyle={{ color: "#16a34a", fontWeight: "bold" }}
+                        />
+                        <Line type="monotone" dataKey="revenue" stroke="#16a34a" strokeWidth={3} dot={{ r: 4, fill: "#16a34a", strokeWidth: 2, stroke: darkMode ? "#1f2937" : "#fff" }} activeDot={{ r: 6 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className={`${card} p-5`}>
+                  <h3 className={`font-bold mb-4 ${darkMode ? "text-white" : "text-gray-800"}`}>Appointments Trend</h3>
+                  <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#374151" : "#f3f4f6"} vertical={false} />
+                        <XAxis dataKey="name" stroke={darkMode ? "#9ca3af" : "#6b7280"} fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke={darkMode ? "#9ca3af" : "#6b7280"} fontSize={12} tickLine={false} axisLine={false} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: darkMode ? "#1f2937" : "#fff", borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }}
+                          cursor={{ fill: darkMode ? '#374151' : '#f3f4f6' }}
+                          itemStyle={{ color: "#3b82f6", fontWeight: "bold" }}
+                        />
+                        <Bar dataKey="appointments" fill="#3b82f6" radius={[6, 6, 0, 0]} barSize={30} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+              {/* ------------------------ */}
 
               <div className={card}>
                 <div className={`px-6 py-4 border-b flex justify-between items-center ${darkMode ? "border-gray-700" : "border-gray-100"}`}>

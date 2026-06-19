@@ -7,6 +7,7 @@ import useDarkMode from "../hooks/useDarkMode";
 import NotificationBell from "../components/NotificationBell";
 import SearchBar from "../components/SearchBar";
 import Pagination from "../components/Pagination";
+import Logo from "../components/Logo";
 
 const DoctorDashboard = () => {
   const [doctor, setDoctor] = useState(null);
@@ -40,6 +41,7 @@ const DoctorDashboard = () => {
   useEffect(() => {
     if (!token) { navigate("/login"); return; }
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchData = async () => {
@@ -125,8 +127,8 @@ const DoctorDashboard = () => {
     const doc = new jsPDF();
     doc.setFillColor(21, 128, 61); doc.rect(0, 0, 210, 40, "F");
     doc.setTextColor(255, 255, 255); doc.setFontSize(22);
-    doc.text("HMS Hospital", 105, 18, { align: "center" });
-    doc.setFontSize(12); doc.text("Hospital Management System", 105, 30, { align: "center" });
+    doc.text("HealSync", 105, 18, { align: "center" });
+    doc.setFontSize(12); doc.text("HealSync", 105, 30, { align: "center" });
     doc.setTextColor(0, 0, 0); doc.setFontSize(18);
     doc.text("BILL / INVOICE", 105, 55, { align: "center" });
     doc.setFontSize(11); doc.setTextColor(100, 100, 100);
@@ -149,9 +151,9 @@ const DoctorDashboard = () => {
     doc.setFontSize(16); doc.setTextColor(22, 163, 74); doc.text(`Rs. ${bill.amount}`, 165, 167, { align: "right" });
     doc.setFillColor(21, 128, 61); doc.rect(0, 270, 210, 30, "F");
     doc.setTextColor(255, 255, 255); doc.setFontSize(10);
-    doc.text("Thank you for choosing HMS Hospital!", 105, 282, { align: "center" });
-    doc.text("For queries: support@hmshospital.com", 105, 290, { align: "center" });
-    doc.save(`HMS_Bill_${bill._id}.pdf`);
+    doc.text("Thank you for choosing  HealSync!", 105, 282, { align: "center" });
+    doc.text("For queries: support@healsync.com", 105, 290, { align: "center" });
+    doc.save(`HealSync_Bill_${bill._id}.pdf`);
   };
 
   const handleLogout = () => { localStorage.removeItem("token"); localStorage.removeItem("role"); navigate("/login"); };
@@ -188,21 +190,23 @@ const DoctorDashboard = () => {
   return (
     <div className={`min-h-screen flex ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
 
-      <aside className={`${sidebarOpen ? "w-64" : "w-20"} transition-all duration-300 flex-shrink-0 ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border-r flex flex-col shadow-sm`}>
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`fixed md:relative z-50 h-screen transition-all duration-300 flex-shrink-0 flex flex-col shadow-sm ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border-r ${sidebarOpen ? "translate-x-0 w-64" : "-translate-x-full w-64 md:translate-x-0 md:w-20"}`}>
         <div className={`p-5 border-b ${darkMode ? "border-gray-700" : "border-gray-100"} flex items-center justify-between`}>
-          <div className={`flex items-center gap-3 ${!sidebarOpen && "justify-center"}`}>
-            <div className="w-9 h-9 bg-gradient-to-br from-green-500 to-green-700 rounded-xl flex items-center justify-center flex-shrink-0 shadow">
-              <span className="text-white text-lg">🏥</span>
-            </div>
-            {sidebarOpen && (
-              <div>
-                <p className={`font-black text-base ${darkMode ? "text-white" : "text-green-700"}`}>HMS</p>
-                <p className="text-xs text-gray-400">Doctor Portal</p>
-              </div>
-            )}
-          </div>
-          {sidebarOpen && <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600">◀</button>}
-        </div>
+  
+  {/* 🚀 Your brand new SVG Logo Component */}
+  <Logo darkMode={darkMode} sidebarOpen={sidebarOpen} />
+
+  {sidebarOpen && <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600">◀</button>}
+</div>
 
         {sidebarOpen && doctor && (
           <div className={`mx-3 mt-4 p-3 rounded-2xl ${darkMode ? "bg-gray-700" : "bg-green-50"}`}>
