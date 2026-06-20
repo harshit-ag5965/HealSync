@@ -7,11 +7,7 @@ const env = require("dotenv").config();
 // REGISTER
 const register = async (req, res) => {
   try {
-    const { name, email, password, role, phone } = req.body;
-
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "Please fill all fields" });
-    }
+    const { name, email, password, role } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -26,22 +22,33 @@ const register = async (req, res) => {
       email,
       password: hashedPassword,
       role: role || "patient",
-      phone: phone || "",
     });
 
-    // Auto-create patient profile on registration
-if (role === "patient" || !role) {
-  const Patient = require("../models/Patient");
-  await Patient.create({
-    name,
-    user: user._id,
-    phone: phone || "0000000000",
-    age: 1,
-    gender: "male",
-    address: "",
-    medicalHistory: "None",
-  });
-}
+    // ✅ Auto-create Patient profile
+    if (role === "patient" || !role) {
+      const Patient = require("../models/Patient");
+      await Patient.create({
+        user: user._id,
+        name,
+        age: 1,
+        phone: "0000000000",
+        gender: "other",   // ✅ add default gender
+      });
+    }
+
+    // ✅ Auto-create Doctor profile
+    if (role === "doctor") {
+      const Doctor = require("../models/Doctor");
+      await Doctor.create({
+        userId: user._id,
+        name,
+        specialization: "General",
+        experience: "0",
+        fees: 0,
+        phone: "",
+        address: "",
+      });
+    }
 
     const token = jwt.sign(
       { id: user._id, role: user.role },
@@ -52,15 +59,11 @@ if (role === "patient" || !role) {
     res.status(201).json({
       message: "User registered successfully",
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
+      role: user.role,
     });
+
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 

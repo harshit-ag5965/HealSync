@@ -42,4 +42,29 @@ router.get("/users", protect, async (req, res) => {
   }
 });
 
+// DELETE user by ID - Admin only
+router.delete("/users/:id", protect, async (req, res) => {
+  try {
+    const User = require("../models/User");
+    const Patient = require("../models/Patient");
+    const Doctor = require("../models/Doctor");
+
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Delete associated profile
+    if (user.role === "patient") {
+      await Patient.findOneAndDelete({ user: user._id });
+    }
+    if (user.role === "doctor") {
+      await Doctor.findOneAndDelete({ userId: user._id });
+    }
+
+    await User.findByIdAndDelete(req.params.id);
+    res.status(200).json({ message: "User deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;

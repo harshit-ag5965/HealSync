@@ -105,7 +105,7 @@ const AdminDashboard = () => {
   const handleAddDoctor = async (e) => {
     e.preventDefault();
     try {
-      await axios.post("http://localhost:5000/api/doctors/register", doctorForm, config);
+      await axios.post("http://localhost:5000/api/doctors", doctorForm, config);
       toast.success("Doctor added successfully!");
       setDoctorForm({ name: "", email: "", password: "", phone: "", specialization: "", experience: "", fees: "", address: "" });
       fetchAll();
@@ -179,7 +179,7 @@ const AdminDashboard = () => {
   const handleDeleteUser = async (id) => {
     if (!window.confirm("Delete this user?")) return;
     try {
-      await axios.delete(`http://localhost:5000/api/users/${id}`, config);
+      await axios.delete(`http://localhost:5000/api/auth/users/${id}`, config);
       toast.success("User deleted!");
       fetchAll();
     } catch { toast.error("Failed to delete user"); }

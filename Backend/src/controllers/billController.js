@@ -30,7 +30,8 @@ const getDoctorEarnings = async (req, res) => {
     const Doctor = require("../models/Doctor");
     
     // Find doctor profile linked to logged-in user
-    const doctor = await Doctor.findOne({ userId: req.user.id });
+    // ✅ FIXED (use _id explicitly)
+const doctor = await Doctor.findOne({ userId: req.user._id });
     if (!doctor) return res.status(404).json({ message: "Doctor profile not found" });
 
     const bills = await Bill.find({ doctor: doctor._id })

@@ -45,27 +45,37 @@ const DoctorDashboard = () => {
   }, []);
 
   const fetchData = async () => {
-    try {
-      const decoded = jwtDecode(token);
-      const loggedInUserId = decoded.id;
-      const [doctorsRes, appointmentsRes, earningsRes, billsRes] = await Promise.all([
-        axios.get("http://localhost:5000/api/doctors", config),
-        axios.get("http://localhost:5000/api/appointments", config),
-        axios.get("http://localhost:5000/api/bills/doctor/earnings", config),
-        axios.get("http://localhost:5000/api/bills", config),
-      ]);
-      const allDoctors = Array.isArray(doctorsRes.data) ? doctorsRes.data : [];
-      const myDoctor = allDoctors.find(doc => doc.userId?._id?.toString() === loggedInUserId);
-      setDoctor(myDoctor);
-      if (myDoctor) setEditForm({ name: myDoctor.name || "", phone: myDoctor.phone || "", address: myDoctor.address || "", specialization: myDoctor.specialization || "", experience: myDoctor.experience || "", fees: myDoctor.fees || "" });
-      const allAppointments = Array.isArray(appointmentsRes.data) ? appointmentsRes.data : [];
-      setAppointments(allAppointments.filter(apt => apt.doctor?._id?.toString() === myDoctor?._id?.toString()));
-      setEarnings(earningsRes.data);
-      const allBills = Array.isArray(billsRes.data) ? billsRes.data : [];
-      setBills(allBills.filter(bill => bill.doctor?._id?.toString() === myDoctor?._id?.toString()));
-    } catch (error) { console.error(error); }
-    setLoading(false);
+  const safe = async (fn) => {
+    try { return await fn(); }
+    catch (e) { console.warn("API failed:", e.config?.url, e.response?.status); return { data: null }; }
   };
+
+  try {
+    const decoded = jwtDecode(token);
+    const loggedInUserId = decoded.id;
+
+    const [doctorsRes, appointmentsRes, earningsRes, billsRes] = await Promise.all([
+      safe(() => axios.get("http://localhost:5000/api/doctors", config)),
+      safe(() => axios.get("http://localhost:5000/api/appointments", config)),
+      safe(() => axios.get("http://localhost:5000/api/bills/doctor/earnings", config)),
+      safe(() => axios.get("http://localhost:5000/api/bills", config)),
+    ]);
+
+    const allDoctors = Array.isArray(doctorsRes.data) ? doctorsRes.data : [];
+    const myDoctor = allDoctors.find(doc => doc.userId?._id?.toString() === loggedInUserId);
+    setDoctor(myDoctor);
+    if (myDoctor) setEditForm({ name: myDoctor.name || "", phone: myDoctor.phone || "", address: myDoctor.address || "", specialization: myDoctor.specialization || "", experience: myDoctor.experience || "", fees: myDoctor.fees || "" });
+
+    const allAppointments = Array.isArray(appointmentsRes.data) ? appointmentsRes.data : [];
+    setAppointments(allAppointments.filter(apt => apt.doctor?._id?.toString() === myDoctor?._id?.toString()));
+
+    setEarnings(earningsRes.data || {});
+
+    const allBills = Array.isArray(billsRes.data) ? billsRes.data : [];
+    setBills(allBills.filter(bill => bill.doctor?._id?.toString() === myDoctor?._id?.toString()));
+  } catch (error) { console.error(error); }
+  setLoading(false);
+};
 
   const myPatients = [...new Map(appointments.map(a => [a.patient?._id, a.patient])).values()].filter(Boolean);
 

@@ -8,6 +8,85 @@ import SearchBar from "../components/SearchBar";
 import Pagination from "../components/Pagination";
 import Logo from "../components/Logo";
 
+const ProfileEditForm = ({ patient, token, onUpdate, darkMode }) => {
+  const [form, setForm] = useState({
+    name: patient?.name || "",
+    phone: patient?.phone || "",
+    address: patient?.address || "",
+    medicalHistory: patient?.medicalHistory || "",
+    age: patient?.age || "",
+    gender: patient?.gender || "",
+  });
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMsg(""); setErr("");
+    try {
+      await axios.put(
+        `http://localhost:5000/api/patients/${patient._id}`,
+        form,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setMsg("✅ Profile updated successfully!");
+      toast.success("Profile updated!");
+      onUpdate();
+    } catch (error) {
+      setErr("❌ Failed to update profile");
+      toast.error("Failed to update profile");
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {msg && <div className="bg-green-100 text-green-600 px-4 py-2 rounded-xl text-sm">{msg}</div>}
+      {err && <div className="bg-red-100 text-red-600 px-4 py-2 rounded-xl text-sm">{err}</div>}
+      {[
+        { label: "Full Name", name: "name", type: "text" },
+        { label: "Phone", name: "phone", type: "text" },
+        { label: "Age", name: "age", type: "number" },
+        { label: "Address", name: "address", type: "text" },
+        { label: "Medical History", name: "medicalHistory", type: "text" },
+      ].map((field) => (
+        <div key={field.name}>
+          <label className={`block text-sm font-semibold mb-1.5 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+            {field.label}
+          </label>
+          <input
+            type={field.type}
+            value={form[field.name]}
+            onChange={(e) => setForm({ ...form, [field.name]: e.target.value })}
+            className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+              darkMode ? "bg-gray-700 border-gray-600 text-white" : "border-gray-200 bg-gray-50"
+            }`}
+          />
+        </div>
+      ))}
+      <div>
+        <label className={`block text-sm font-semibold mb-1.5 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+          Gender
+        </label>
+        <select
+          value={form.gender}
+          onChange={(e) => setForm({ ...form, gender: e.target.value })}
+          className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+            darkMode ? "bg-gray-700 border-gray-600 text-white" : "border-gray-200 bg-gray-50"
+          }`}>
+          <option value="">Select Gender</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <button type="submit"
+        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl font-bold hover:shadow-lg transition-all">
+        Save Changes →
+      </button>
+    </form>
+  );
+};
+
 const PatientDashboard = () => {
   const [patient, setPatient] = useState(null);
   const [appointments, setAppointments] = useState([]);
@@ -23,7 +102,6 @@ const PatientDashboard = () => {
   const [rescheduleData, setRescheduleData] = useState({ date: "", time: "" });
   const [rescheduleMsg, setRescheduleMsg] = useState("");
 
-  // Search & Pagination
   const [searchAppointments, setSearchAppointments] = useState("");
   const [aptPage, setAptPage] = useState(1);
   const [searchBills, setSearchBills] = useState("");
@@ -39,7 +117,6 @@ const PatientDashboard = () => {
   useEffect(() => {
     if (!token) { navigate("/login"); return; }
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchData = async () => {
@@ -147,7 +224,7 @@ const PatientDashboard = () => {
     doc.setFontSize(16); doc.setTextColor(22, 163, 74); doc.text(`Rs. ${bill.amount}`, 165, 167, { align: "right" });
     doc.setFillColor(37, 99, 235); doc.rect(0, 270, 210, 30, "F");
     doc.setTextColor(255, 255, 255); doc.setFontSize(10);
-    doc.text("Thank you for choosing  HealSync!", 105, 282, { align: "center" });
+    doc.text("Thank you for choosing HealSync!", 105, 282, { align: "center" });
     doc.text("For queries: support@healsync.com", 105, 290, { align: "center" });
     doc.save(`HealSync_Bill_${bill._id}.pdf`);
   };
@@ -182,23 +259,16 @@ const PatientDashboard = () => {
   return (
     <div className={`min-h-screen flex ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
 
-      {/* Mobile Overlay */}
       {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden backdrop-blur-sm transition-opacity"
-          onClick={() => setSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Sidebar */}
       <aside className={`fixed md:relative z-50 h-screen transition-all duration-300 flex-shrink-0 flex flex-col shadow-sm ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border-r ${sidebarOpen ? "translate-x-0 w-64" : "-translate-x-full w-64 md:translate-x-0 md:w-20"}`}>
         <div className={`p-5 border-b ${darkMode ? "border-gray-700" : "border-gray-100"} flex items-center justify-between`}>
-  
-  {/* 🚀 Your brand new SVG Logo Component */}
-  <Logo darkMode={darkMode} sidebarOpen={sidebarOpen} />
-
-  {sidebarOpen && <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600">◀</button>}
-</div>
+          <Logo darkMode={darkMode} sidebarOpen={sidebarOpen} />
+          {sidebarOpen && <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600">◀</button>}
+        </div>
 
         {sidebarOpen && (
           <div className={`mx-3 mt-4 p-3 rounded-2xl ${darkMode ? "bg-gray-700" : "bg-blue-50"}`}>
@@ -549,22 +619,12 @@ const PatientDashboard = () => {
                   <p className="text-white font-black text-xl">{patient?.name}</p>
                   <p className="text-blue-200 text-sm mt-1">Patient</p>
                 </div>
-                <div className="p-6 space-y-4">
-                  {[
-                    { label: "Age", value: patient?.age, icon: "🎂" },
-                    { label: "Gender", value: patient?.gender, icon: "👤" },
-                    { label: "Phone", value: patient?.phone, icon: "📞" },
-                    { label: "Address", value: patient?.address, icon: "📍" },
-                    { label: "Medical History", value: patient?.medicalHistory, icon: "🏥" },
-                  ].map((item) => (
-                    <div key={item.label} className={`flex items-center gap-4 p-3 rounded-xl ${darkMode ? "bg-gray-700" : "bg-gray-50"}`}>
-                      <span className="text-xl">{item.icon}</span>
-                      <div>
-                        <p className={`text-xs font-medium ${darkMode ? "text-gray-400" : "text-gray-400"}`}>{item.label}</p>
-                        <p className={`font-semibold text-sm mt-0.5 ${darkMode ? "text-white" : "text-gray-700"}`}>{item.value || "Not provided"}</p>
-                      </div>
-                    </div>
-                  ))}
+                <div className="p-6">
+                  {patient ? (
+                    <ProfileEditForm patient={patient} token={token} onUpdate={fetchData} darkMode={darkMode} />
+                  ) : (
+                    <p className={`text-center ${darkMode ? "text-gray-400" : "text-gray-500"}`}>No profile found.</p>
+                  )}
                 </div>
               </div>
             </div>
