@@ -29,7 +29,7 @@ const bookAppointment = async (req, res) => {
 
     const patientDoc = await Patient.findById(patient);
     const userDoc = await User.findById(patientDoc?.user);
-
+    // console.log("UserDoc:", userDoc); // Debugging line
     // Notify patient
     if (userDoc) {
       await Notification.create({
@@ -37,6 +37,7 @@ const bookAppointment = async (req, res) => {
         message: `Your appointment with ${populated.doctor?.name} on ${date} at ${time} has been booked.`,
         type: "booked",
       });
+      console.log("Notification sent to patient:", userDoc._id); // Debugging line
     }
 
     // Notify doctor
@@ -48,12 +49,14 @@ const bookAppointment = async (req, res) => {
         type: "booked",
       });
     }
+    console.log("Notifications sent to patient and doctor."); // Debugging line
 
     // Notify admins
     await notifyAdmins(
       `New appointment booked — Patient: ${populated.patient?.name}, Doctor: ${populated.doctor?.name}, Date: ${date}.`,
       "booked"
     );
+    console.log("Notifications sent to admins."); // Debugging line
 
     if (userDoc?.email) {
       await sendEmail({
@@ -94,9 +97,11 @@ const bookAppointment = async (req, res) => {
         `,
       });
     }
+    console.log("last line:", userDoc?.email); // Debugging line
 
     res.status(201).json({ message: "Appointment booked", appointment });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: error.message });
   }
 };
