@@ -8,6 +8,7 @@ import NotificationBell from "../components/NotificationBell";
 import SearchBar from "../components/SearchBar";
 import Pagination from "../components/Pagination";
 import Logo from "../components/Logo";
+import BASE_URL from "../api";
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -25,14 +26,12 @@ const AdminDashboard = () => {
   const [editingDoctor, setEditingDoctor] = useState(null);
   const [editDoctorForm, setEditDoctorForm] = useState({});
 
-  // Search states
   const [searchDoctors, setSearchDoctors] = useState("");
   const [searchPatients, setSearchPatients] = useState("");
   const [searchAppointments, setSearchAppointments] = useState("");
   const [searchBills, setSearchBills] = useState("");
   const [searchUsers, setSearchUsers] = useState("");
 
-  // Pagination states
   const [doctorPage, setDoctorPage] = useState(1);
   const [patientPage, setPatientPage] = useState(1);
   const [appointmentPage, setAppointmentPage] = useState(1);
@@ -58,11 +57,11 @@ const AdminDashboard = () => {
       catch (e) { console.warn("API failed:", e.config?.url, e.response?.status); return { data: [] }; }
     };
     const [doctorsRes, patientsRes, appointmentsRes, billsRes, usersRes] = await Promise.all([
-      safe(() => axios.get("http://localhost:5000/api/doctors", config)),
-      safe(() => axios.get("http://localhost:5000/api/patients", config)),
-      safe(() => axios.get("http://localhost:5000/api/appointments", config)),
-      safe(() => axios.get("http://localhost:5000/api/bills", config)),
-      safe(() => axios.get("http://localhost:5000/api/auth/users", config)),
+      safe(() => axios.get(`${BASE_URL}/api/doctors`, config)),
+      safe(() => axios.get(`${BASE_URL}/api/patients`, config)),
+      safe(() => axios.get(`${BASE_URL}/api/appointments`, config)),
+      safe(() => axios.get(`${BASE_URL}/api/bills`, config)),
+      safe(() => axios.get(`${BASE_URL}/api/auth/users`, config)),
     ]);
     const d = Array.isArray(doctorsRes.data) ? doctorsRes.data : [];
     const p = Array.isArray(patientsRes.data) ? patientsRes.data : [];
@@ -75,7 +74,6 @@ const AdminDashboard = () => {
     setLoading(false);
   };
 
-  // Filtered lists
   const filteredDoctors = doctors.filter(d =>
     d.name?.toLowerCase().includes(searchDoctors.toLowerCase()) ||
     d.specialization?.toLowerCase().includes(searchDoctors.toLowerCase())
@@ -105,7 +103,7 @@ const AdminDashboard = () => {
   const handleAddDoctor = async (e) => {
     e.preventDefault();
     try {
-      await axios.post("http://localhost:5000/api/doctors", doctorForm, config);
+      await axios.post(`${BASE_URL}/api/doctors`, doctorForm, config);
       toast.success("Doctor added successfully!");
       setDoctorForm({ name: "", email: "", password: "", phone: "", specialization: "", experience: "", fees: "", address: "" });
       fetchAll();
@@ -117,7 +115,7 @@ const AdminDashboard = () => {
   const handleDeleteDoctor = async (id) => {
     if (!window.confirm("Delete this doctor?")) return;
     try {
-      await axios.delete(`http://localhost:5000/api/doctors/${id}`, config);
+      await axios.delete(`${BASE_URL}/api/doctors/${id}`, config);
       toast.success("Doctor deleted!");
       fetchAll();
     } catch { toast.error("Failed to delete doctor"); }
@@ -126,7 +124,7 @@ const AdminDashboard = () => {
   const handleEditDoctor = async (e) => {
     e.preventDefault();
     try {
-      await axios.put(`http://localhost:5000/api/doctors/${editingDoctor}`, editDoctorForm, config);
+      await axios.put(`${BASE_URL}/api/doctors/${editingDoctor}`, editDoctorForm, config);
       toast.success("Doctor updated!");
       setEditingDoctor(null);
       fetchAll();
@@ -136,7 +134,7 @@ const AdminDashboard = () => {
   const handleDeletePatient = async (id) => {
     if (!window.confirm("Delete this patient?")) return;
     try {
-      await axios.delete(`http://localhost:5000/api/patients/${id}`, config);
+      await axios.delete(`${BASE_URL}/api/patients/${id}`, config);
       toast.success("Patient deleted!");
       fetchAll();
     } catch { toast.error("Failed to delete patient"); }
@@ -145,7 +143,7 @@ const AdminDashboard = () => {
   const handleDeleteAppointment = async (id) => {
     if (!window.confirm("Delete this appointment?")) return;
     try {
-      await axios.delete(`http://localhost:5000/api/appointments/${id}`, config);
+      await axios.delete(`${BASE_URL}/api/appointments/${id}`, config);
       toast.success("Appointment deleted!");
       fetchAll();
     } catch { toast.error("Failed to delete appointment"); }
@@ -153,7 +151,7 @@ const AdminDashboard = () => {
 
   const handleUpdateAppointmentStatus = async (id, status) => {
     try {
-      await axios.put(`http://localhost:5000/api/appointments/${id}`, { status }, config);
+      await axios.put(`${BASE_URL}/api/appointments/${id}`, { status }, config);
       toast.success(`Status updated to ${status}`);
       fetchAll();
     } catch { toast.error("Failed to update status"); }
@@ -162,7 +160,7 @@ const AdminDashboard = () => {
   const handleDeleteBill = async (id) => {
     if (!window.confirm("Delete this bill?")) return;
     try {
-      await axios.delete(`http://localhost:5000/api/bills/${id}`, config);
+      await axios.delete(`${BASE_URL}/api/bills/${id}`, config);
       toast.success("Bill deleted!");
       fetchAll();
     } catch { toast.error("Failed to delete bill"); }
@@ -170,7 +168,7 @@ const AdminDashboard = () => {
 
   const handleUpdateBillStatus = async (id, status) => {
     try {
-      await axios.put(`http://localhost:5000/api/bills/${id}`, { status }, config);
+      await axios.put(`${BASE_URL}/api/bills/${id}`, { status }, config);
       toast.success(`Bill marked as ${status}`);
       fetchAll();
     } catch { toast.error("Failed to update bill"); }
@@ -179,7 +177,7 @@ const AdminDashboard = () => {
   const handleDeleteUser = async (id) => {
     if (!window.confirm("Delete this user?")) return;
     try {
-      await axios.delete(`http://localhost:5000/api/auth/users/${id}`, config);
+      await axios.delete(`${BASE_URL}/api/auth/users/${id}`, config);
       toast.success("User deleted!");
       fetchAll();
     } catch { toast.error("Failed to delete user"); }
@@ -206,8 +204,8 @@ const AdminDashboard = () => {
   const card = `rounded-2xl border shadow-sm ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`;
   const th = `px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide ${darkMode ? "text-gray-400" : "text-gray-500"}`;
   const td = `px-4 py-3 text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`;
-  const input = `w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 ${darkMode ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : "border-gray-200 bg-gray-50"}`;
-  const label = `block text-xs font-semibold mb-1 ${darkMode ? "text-gray-300" : "text-gray-600"}`;
+  const inputCls = `w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 ${darkMode ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : "border-gray-200 bg-gray-50"}`;
+  const labelCls = `block text-xs font-semibold mb-1 ${darkMode ? "text-gray-300" : "text-gray-600"}`;
 
   const navItems = [
     { id: "dashboard", icon: "📊", label: "Dashboard" },
@@ -219,15 +217,19 @@ const AdminDashboard = () => {
     { id: "users", icon: "👤", label: "Users" },
   ];
 
-  // Dummy Chart Data combined with actual stats
-  const chartData = [
-    { name: 'Jan', revenue: 4000, appointments: 24 },
-    { name: 'Feb', revenue: 3000, appointments: 18 },
-    { name: 'Mar', revenue: 5000, appointments: 29 },
-    { name: 'Apr', revenue: 4500, appointments: 25 },
-    { name: 'May', revenue: 6000, appointments: 32 },
-    { name: 'Jun', revenue: Math.max(stats.revenue, 7000), appointments: Math.max(stats.appointments, 40) }
-  ];
+  // Real chart data computed from actual bills and appointments grouped by month
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const chartData = monthNames.map((name, i) => {
+    const monthBills = bills.filter(b => {
+      const d = new Date(b.date || b.createdAt);
+      return d.getMonth() === i && d.getFullYear() === new Date().getFullYear() && b.status === 'paid';
+    });
+    const monthApts = appointments.filter(a => {
+      const d = new Date(a.date || a.createdAt);
+      return d.getMonth() === i && d.getFullYear() === new Date().getFullYear();
+    });
+    return { name, revenue: monthBills.reduce((sum, b) => sum + (b.amount || 0), 0), appointments: monthApts.length };
+  }).filter((_, i) => i <= new Date().getMonth());
 
   if (loading) return (
     <div className={`min-h-screen flex items-center justify-center ${darkMode ? "bg-gray-900" : "bg-green-50"}`}>
@@ -243,7 +245,7 @@ const AdminDashboard = () => {
 
       {/* Mobile Overlay */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden backdrop-blur-sm transition-opacity"
           onClick={() => setSidebarOpen(false)}
         />
@@ -251,13 +253,10 @@ const AdminDashboard = () => {
 
       {/* Sidebar */}
       <aside className={`fixed md:relative z-50 h-screen transition-all duration-300 flex-shrink-0 flex flex-col shadow-sm ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border-r ${sidebarOpen ? "translate-x-0 w-64" : "-translate-x-full w-64 md:translate-x-0 md:w-20"}`}>
-       <div className={`p-5 border-b ${darkMode ? "border-gray-700" : "border-gray-100"} flex items-center justify-between`}>
-  
-  {/* 🚀 Your brand new SVG Logo Component */}
-  <Logo darkMode={darkMode} sidebarOpen={sidebarOpen} />
-
-  {sidebarOpen && <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600">◀</button>}
-</div>
+        <div className={`p-5 border-b ${darkMode ? "border-gray-700" : "border-gray-100"} flex items-center justify-between`}>
+          <Logo darkMode={darkMode} sidebarOpen={sidebarOpen} />
+          {sidebarOpen && <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600">◀</button>}
+        </div>
 
         {sidebarOpen && (
           <div className={`mx-3 mt-4 p-3 rounded-2xl ${darkMode ? "bg-gray-700" : "bg-green-50"}`}>
@@ -274,10 +273,9 @@ const AdminDashboard = () => {
         <nav className="flex-1 p-3 mt-2 space-y-1">
           {navItems.map((item) => (
             <button key={item.id} onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                activeTab === item.id ? "bg-green-600 text-white shadow-md"
-                : darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-gray-100"
-              } ${!sidebarOpen && "justify-center"}`}>
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === item.id ? "bg-green-600 text-white shadow-md"
+                  : darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-gray-100"
+                } ${!sidebarOpen && "justify-center"}`}>
               <span className="text-base flex-shrink-0">{item.icon}</span>
               {sidebarOpen && <span>{item.label}</span>}
             </button>
@@ -286,9 +284,8 @@ const AdminDashboard = () => {
 
         <div className={`p-3 border-t ${darkMode ? "border-gray-700" : "border-gray-100"} space-y-1`}>
           <button onClick={toggleDarkMode}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${
-              darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-gray-100"
-            } ${!sidebarOpen && "justify-center"}`}>
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-gray-100"
+              } ${!sidebarOpen && "justify-center"}`}>
             <span>{darkMode ? "☀️" : "🌙"}</span>
             {sidebarOpen && <span>{darkMode ? "Light Mode" : "Dark Mode"}</span>}
           </button>
@@ -348,7 +345,7 @@ const AdminDashboard = () => {
                 ))}
               </div>
 
-              {/* --- ANALYTICS CHARTS --- */}
+              {/* ANALYTICS CHARTS */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className={`${card} p-5`}>
                   <h3 className={`font-bold mb-4 ${darkMode ? "text-white" : "text-gray-800"}`}>Revenue Overview</h3>
@@ -357,8 +354,8 @@ const AdminDashboard = () => {
                       <LineChart data={chartData}>
                         <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#374151" : "#f3f4f6"} vertical={false} />
                         <XAxis dataKey="name" stroke={darkMode ? "#9ca3af" : "#6b7280"} fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis stroke={darkMode ? "#9ca3af" : "#6b7280"} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `₹${value}`} />
-                        <Tooltip 
+                        <YAxis stroke={darkMode ? "#9ca3af" : "#6b7280"} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${v}`} />
+                        <Tooltip
                           contentStyle={{ backgroundColor: darkMode ? "#1f2937" : "#fff", borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }}
                           itemStyle={{ color: "#16a34a", fontWeight: "bold" }}
                         />
@@ -376,7 +373,7 @@ const AdminDashboard = () => {
                         <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#374151" : "#f3f4f6"} vertical={false} />
                         <XAxis dataKey="name" stroke={darkMode ? "#9ca3af" : "#6b7280"} fontSize={12} tickLine={false} axisLine={false} />
                         <YAxis stroke={darkMode ? "#9ca3af" : "#6b7280"} fontSize={12} tickLine={false} axisLine={false} />
-                        <Tooltip 
+                        <Tooltip
                           contentStyle={{ backgroundColor: darkMode ? "#1f2937" : "#fff", borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }}
                           cursor={{ fill: darkMode ? '#374151' : '#f3f4f6' }}
                           itemStyle={{ color: "#3b82f6", fontWeight: "bold" }}
@@ -387,7 +384,6 @@ const AdminDashboard = () => {
                   </div>
                 </div>
               </div>
-              {/* ------------------------ */}
 
               <div className={card}>
                 <div className={`px-6 py-4 border-b flex justify-between items-center ${darkMode ? "border-gray-700" : "border-gray-100"}`}>
@@ -397,7 +393,7 @@ const AdminDashboard = () => {
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className={darkMode ? "bg-gray-700" : "bg-gray-50"}>
-                      <tr>{["Patient","Doctor","Date","Time","Status"].map(h => <th key={h} className={th}>{h}</th>)}</tr>
+                      <tr>{["Patient", "Doctor", "Date", "Time", "Status"].map(h => <th key={h} className={th}>{h}</th>)}</tr>
                     </thead>
                     <tbody className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-50"}`}>
                       {appointments.slice(0, 5).map(apt => (
@@ -417,7 +413,7 @@ const AdminDashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className={`${card} p-5`}>
                   <p className={`text-xs font-semibold uppercase tracking-wide mb-3 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Appointment Status</p>
-                  {["pending","confirmed","completed","cancelled"].map(s => (
+                  {["pending", "confirmed", "completed", "cancelled"].map(s => (
                     <div key={s} className="flex justify-between items-center py-1.5">
                       <span className={`text-sm capitalize ${darkMode ? "text-gray-300" : "text-gray-600"}`}>{s}</span>
                       <span className={`text-sm font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>{appointments.filter(a => a.status === s).length}</span>
@@ -468,10 +464,10 @@ const AdminDashboard = () => {
                     <div>
                       <p className={`font-bold mb-4 ${darkMode ? "text-white" : "text-gray-800"}`}>Edit Doctor</p>
                       <form onSubmit={handleEditDoctor} className="grid grid-cols-2 gap-3">
-                        {["name","phone","specialization","experience","fees","address"].map(field => (
+                        {["name", "phone", "specialization", "experience", "fees", "address"].map(field => (
                           <div key={field}>
-                            <label className={label}>{field.charAt(0).toUpperCase() + field.slice(1)}</label>
-                            <input className={input} value={editDoctorForm[field] || ""}
+                            <label className={labelCls}>{field.charAt(0).toUpperCase() + field.slice(1)}</label>
+                            <input className={inputCls} value={editDoctorForm[field] || ""}
                               onChange={e => setEditDoctorForm({ ...editDoctorForm, [field]: e.target.value })} />
                           </div>
                         ))}
@@ -528,10 +524,10 @@ const AdminDashboard = () => {
                       { label: "Address", name: "address", type: "text", col: 2 },
                     ].map(f => (
                       <div key={f.name} className={f.col === 2 ? "col-span-2" : ""}>
-                        <label className={label}>{f.label}</label>
+                        <label className={labelCls}>{f.label}</label>
                         <input type={f.type} required value={doctorForm[f.name]}
                           onChange={e => setDoctorForm({ ...doctorForm, [f.name]: e.target.value })}
-                          className={input} />
+                          className={inputCls} />
                       </div>
                     ))}
                     <div className="col-span-2">
@@ -582,7 +578,7 @@ const AdminDashboard = () => {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className={darkMode ? "bg-gray-700" : "bg-gray-50"}>
-                    <tr>{["Patient","Doctor","Date","Time","Notes","Status","Actions"].map(h => <th key={h} className={th}>{h}</th>)}</tr>
+                    <tr>{["Patient", "Doctor", "Date", "Time", "Notes", "Status", "Actions"].map(h => <th key={h} className={th}>{h}</th>)}</tr>
                   </thead>
                   <tbody className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-50"}`}>
                     {paginate(filteredAppointments, appointmentPage).map(apt => (
@@ -595,7 +591,7 @@ const AdminDashboard = () => {
                         <td className={td}>
                           <select value={apt.status} onChange={e => handleUpdateAppointmentStatus(apt._id, e.target.value)}
                             className={`border rounded-lg px-2 py-1 text-xs font-semibold focus:outline-none ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "border-gray-200"}`}>
-                            {["pending","confirmed","completed","cancelled"].map(s => <option key={s} value={s}>{s}</option>)}
+                            {["pending", "confirmed", "completed", "cancelled"].map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
                         </td>
                         <td className={td}>
@@ -623,7 +619,7 @@ const AdminDashboard = () => {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className={darkMode ? "bg-gray-700" : "bg-gray-50"}>
-                    <tr>{["Patient","Doctor","Date","Amount","Status","Actions"].map(h => <th key={h} className={th}>{h}</th>)}</tr>
+                    <tr>{["Patient", "Doctor", "Date", "Amount", "Status", "Actions"].map(h => <th key={h} className={th}>{h}</th>)}</tr>
                   </thead>
                   <tbody className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-50"}`}>
                     {paginate(filteredBills, billPage).map(bill => (
@@ -635,7 +631,7 @@ const AdminDashboard = () => {
                         <td className={td}>
                           <select value={bill.status} onChange={e => handleUpdateBillStatus(bill._id, e.target.value)}
                             className={`border rounded-lg px-2 py-1 text-xs font-semibold focus:outline-none ${darkMode ? "bg-gray-700 border-gray-600 text-white" : "border-gray-200"}`}>
-                            {["paid","unpaid"].map(s => <option key={s} value={s}>{s}</option>)}
+                            {["paid", "unpaid"].map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
                         </td>
                         <td className={td}>
@@ -663,7 +659,7 @@ const AdminDashboard = () => {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className={darkMode ? "bg-gray-700" : "bg-gray-50"}>
-                    <tr>{["Name","Email","Role","Actions"].map(h => <th key={h} className={th}>{h}</th>)}</tr>
+                    <tr>{["Name", "Email", "Role", "Actions"].map(h => <th key={h} className={th}>{h}</th>)}</tr>
                   </thead>
                   <tbody className={`divide-y ${darkMode ? "divide-gray-700" : "divide-gray-50"}`}>
                     {paginate(filteredUsers, userPage).map(u => (
@@ -671,10 +667,9 @@ const AdminDashboard = () => {
                         <td className={td}>{u.name || "—"}</td>
                         <td className={td}>{u.email}</td>
                         <td className={td}>
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                            u.role === "admin" ? "bg-purple-100 text-purple-700" :
-                            u.role === "doctor" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
-                          }`}>{u.role}</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${u.role === "admin" ? "bg-purple-100 text-purple-700" :
+                              u.role === "doctor" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
+                            }`}>{u.role}</span>
                         </td>
                         <td className={td}>
                           {u.role !== "admin" && (

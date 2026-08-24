@@ -1,14 +1,14 @@
-const cron = require("node-cron");
+﻿const cron = require("node-cron");
 const Appointment = require("../models/Appointment");
 const User = require("../models/User");
 const Patient = require("../models/Patient");
 const sendEmail = require("./sendEmail");
 
 const startReminderCron = () => {
-  // Runs every hour
-  cron.schedule("0 * * * *", async () => {
+  // Runs once per day at 8:00 AM â€” sends tomorrow's reminders to patients and a daily summary to admins
+  cron.schedule("0 8 * * *", async () => {
     try {
-      console.log("⏰ Running appointment reminder cron...");
+      console.log("â° Running appointment reminder cron...");
 
       const now = new Date();
       const tomorrow = new Date(now);
@@ -32,14 +32,14 @@ const startReminderCron = () => {
         if (userDoc?.email) {
           await sendEmail({
             to: userDoc.email,
-            subject: "⏰ Appointment Reminder — Tomorrow!",
+            subject: "â° Appointment Reminder â€” Tomorrow!",
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
                 <div style="background-color: #f59e0b; padding: 20px; text-align: center;">
-                  <h1 style="color: white; margin: 0; font-size: 22px;">🏥 HMS Hospital</h1>
+                  <h1 style="color: white; margin: 0; font-size: 22px;">ðŸ¥ HealSync</h1>
                 </div>
                 <div style="padding: 24px;">
-                  <h2 style="color: #f59e0b;">⏰ Appointment Reminder!</h2>
+                  <h2 style="color: #f59e0b;">â° Appointment Reminder!</h2>
                   <p style="color: #374151;">Hi <strong>${apt.patient?.name}</strong>,</p>
                   <p style="color: #374151;">This is a reminder that you have an appointment <strong>tomorrow</strong>!</p>
                   <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
@@ -61,12 +61,12 @@ const startReminderCron = () => {
                     </tr>
                   </table>
                   <p style="color: #6b7280; font-size: 13px;">Please arrive 10 minutes early.</p>
-                  <p style="color: #374151;">See you tomorrow! 💙</p>
+                  <p style="color: #374151;">See you tomorrow! ðŸ’™</p>
                 </div>
               </div>
             `,
           });
-          console.log(`✅ Reminder sent to ${userDoc.email}`);
+          console.log(`âœ… Reminder sent to ${userDoc.email}`);
         }
       }
 
@@ -76,14 +76,14 @@ const startReminderCron = () => {
         for (const admin of admins) {
           await sendEmail({
             to: admin.email,
-            subject: `📋 Tomorrow's Appointments Summary — ${tomorrowStr}`,
+            subject: `ðŸ“‹ Tomorrow's Appointments Summary â€” ${tomorrowStr}`,
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
                 <div style="background-color: #7c3aed; padding: 20px; text-align: center;">
-                  <h1 style="color: white; margin: 0; font-size: 22px;">🏥 HMS Hospital</h1>
+                  <h1 style="color: white; margin: 0; font-size: 22px;">ðŸ¥ HealSync</h1>
                 </div>
                 <div style="padding: 24px;">
-                  <h2 style="color: #7c3aed;">📋 Tomorrow's Appointments</h2>
+                  <h2 style="color: #7c3aed;">ðŸ“‹ Tomorrow's Appointments</h2>
                   <p style="color: #374151;"><strong>${appointments.length}</strong> appointments scheduled for <strong>${tomorrowStr}</strong></p>
                   <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
                     <tr style="background: #f5f3ff;">
@@ -113,7 +113,8 @@ const startReminderCron = () => {
     }
   });
 
-  console.log("✅ Reminder cron job started!");
+  console.log("âœ… Reminder cron job started!");
 };
 
 module.exports = startReminderCron;
+

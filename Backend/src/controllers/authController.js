@@ -3,11 +3,22 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
-const env = require("dotenv").config();
+
 // REGISTER
 const register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
+
+    // Upfront validation — catch bad input before doing any DB or hashing work
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Name, email, and password are required" });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -16,6 +27,7 @@ const register = async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
+
 
     const user = await User.create({
       name,
@@ -132,12 +144,13 @@ const forgotPassword = async (req, res) => {
       },
     });
 
-    const resetUrl = `http://localhost:3000/reset-password/${resetToken}`;
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
 
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: user.email,
-      subject: "HMS - Password Reset Request",
+      subject: "HealSync - Password Reset Request",
       html: `
         <h2>Password Reset Request</h2>
         <p>Hello ${user.name},</p>

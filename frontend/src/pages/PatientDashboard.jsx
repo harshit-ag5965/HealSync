@@ -7,6 +7,7 @@ import NotificationBell from "../components/NotificationBell";
 import SearchBar from "../components/SearchBar";
 import Pagination from "../components/Pagination";
 import Logo from "../components/Logo";
+import BASE_URL from "../api";
 
 const ProfileEditForm = ({ patient, token, onUpdate, darkMode }) => {
   const [form, setForm] = useState({
@@ -25,7 +26,7 @@ const ProfileEditForm = ({ patient, token, onUpdate, darkMode }) => {
     setMsg(""); setErr("");
     try {
       await axios.put(
-        `http://localhost:5000/api/patients/${patient._id}`,
+        `${BASE_URL}/api/patients/${patient._id}`,
         form,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -122,18 +123,16 @@ const PatientDashboard = () => {
   const fetchData = async () => {
     try {
       const [patientRes, appointmentsRes, doctorsRes, billsRes] = await Promise.all([
-        axios.get("http://localhost:5000/api/patients/me", config),
-        axios.get("http://localhost:5000/api/appointments", config),
-        axios.get("http://localhost:5000/api/doctors", config),
-        axios.get("http://localhost:5000/api/bills", config),
+        axios.get(`${BASE_URL}/api/patients/me`, config),
+        axios.get(`${BASE_URL}/api/appointments`, config),
+        axios.get(`${BASE_URL}/api/doctors`, config),
+        axios.get(`${BASE_URL}/api/bills`, config),
       ]);
-      const myPatient = patientRes.data || null;
-      setPatient(myPatient);
-      const allAppointments = Array.isArray(appointmentsRes.data) ? appointmentsRes.data : [];
-      setAppointments(allAppointments.filter(a => a.patient?._id === myPatient?._id || a.patient === myPatient?._id));
+      setPatient(patientRes.data || null);
+      // Backend already filters appointments & bills by patient role
+      setAppointments(Array.isArray(appointmentsRes.data) ? appointmentsRes.data : []);
       setDoctors(Array.isArray(doctorsRes.data) ? doctorsRes.data : []);
-      const allBills = Array.isArray(billsRes.data) ? billsRes.data : [];
-      setBills(allBills.filter(b => b.patient?._id === myPatient?._id || b.patient === myPatient?._id));
+      setBills(Array.isArray(billsRes.data) ? billsRes.data : []);
     } catch (error) { console.error(error); }
     setLoading(false);
   };
@@ -156,7 +155,7 @@ const PatientDashboard = () => {
   const handleBooking = async (e) => {
     e.preventDefault();
     try {
-      await axios.post("http://localhost:5000/api/appointments", {
+      await axios.post(`${BASE_URL}/api/appointments`, {
         patient: patient._id, doctor: bookingData.doctor,
         date: bookingData.date, time: bookingData.time, notes: bookingData.notes,
       }, config);
@@ -168,7 +167,7 @@ const PatientDashboard = () => {
 
   const handleCancelAppointment = async (id) => {
     try {
-      await axios.delete(`http://localhost:5000/api/appointments/${id}`, config);
+      await axios.delete(`${BASE_URL}/api/appointments/${id}`, config);
       toast.success("Appointment cancelled");
       fetchData();
     } catch { toast.error("Failed to cancel"); }
@@ -176,7 +175,7 @@ const PatientDashboard = () => {
 
   const handleMarkPaid = async (billId) => {
     try {
-      await axios.put(`http://localhost:5000/api/bills/${billId}/pay`, {}, config);
+      await axios.put(`${BASE_URL}/api/bills/${billId}/pay`, {}, config);
       toast.success("Bill marked as paid!");
       fetchData();
     } catch { toast.error("Failed to update bill"); }
@@ -186,7 +185,7 @@ const PatientDashboard = () => {
     e.preventDefault();
     setRescheduleMsg("");
     try {
-      await axios.put(`http://localhost:5000/api/appointments/${reschedulingId}`,
+      await axios.put(`${BASE_URL}/api/appointments/${reschedulingId}`,
         { date: rescheduleData.date, time: rescheduleData.time }, config);
       toast.success("Rescheduled successfully!");
       setRescheduleMsg("✅ Rescheduled successfully!");
@@ -201,7 +200,7 @@ const PatientDashboard = () => {
     doc.setFillColor(37, 99, 235); doc.rect(0, 0, 210, 40, "F");
     doc.setTextColor(255, 255, 255); doc.setFontSize(22);
     doc.text("HealSync", 105, 18, { align: "center" });
-    doc.setFontSize(12); doc.text("HealSync", 105, 30, { align: "center" });
+    doc.setFontSize(12); doc.text("HealSync Hospital", 105, 30, { align: "center" });
     doc.setTextColor(0, 0, 0); doc.setFontSize(18);
     doc.text("BILL / INVOICE", 105, 55, { align: "center" });
     doc.setFontSize(11); doc.setTextColor(100, 100, 100);

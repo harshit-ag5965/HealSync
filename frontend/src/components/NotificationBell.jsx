@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import BASE_URL from "../api";
 import axios from "axios";
 
 const NotificationBell = ({ token }) => {
@@ -10,7 +11,7 @@ const NotificationBell = ({ token }) => {
 
   const fetchNotifications = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/notifications", config);
+      const res = await axios.get(`${BASE_URL}/api/notifications`, config);
       setNotifications(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       console.error(error);
@@ -37,7 +38,7 @@ const NotificationBell = ({ token }) => {
 
   const handleMarkAsRead = async (id) => {
     try {
-      await axios.put(`http://localhost:5000/api/notifications/${id}/read`, {}, config);
+      await axios.put(`${BASE_URL}/api/notifications/${id}/read`, {}, config);
       fetchNotifications();
     } catch (error) {
       console.error(error);
@@ -46,7 +47,7 @@ const NotificationBell = ({ token }) => {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await axios.put("http://localhost:5000/api/notifications/mark-all-read", {}, config);
+      await axios.put(`${BASE_URL}/api/notifications/mark-all-read`, {}, config);
       fetchNotifications();
     } catch (error) {
       console.error(error);

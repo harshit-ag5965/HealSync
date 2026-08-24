@@ -48,7 +48,7 @@ const LandingPage = () => {
 
     <div className="hidden md:flex items-center gap-8">
       {["Features", "How it Works", "Roles"].map(item => (
-        <a key={item} href={`#${item.toLowerCase().replace(" ", "-")}`}
+        <a key={item} href={`#${item.toLowerCase().replaceAll(" ", "-")}`}
           className={`text-sm font-medium hover:text-blue-400 transition ${scrolled ? "text-gray-600" : "text-white"}`}>
           {item}
         </a>
@@ -278,7 +278,7 @@ const LandingPage = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { name: "Dr. Rakesh Gupta", role: "Cardiologist", text: "HMS has completely transformed how I manage my appointments. The earnings dashboard is incredibly useful.", avatar: "👨‍⚕️" },
+              { name: "Dr. Rakesh Gupta", role: "Cardiologist", text: "HealSync has completely transformed how I manage my appointments. The earnings dashboard is incredibly useful.", avatar: "👨‍⚕️" },
               { name: "Harshit Agarwal", role: "Patient", text: "Booking appointments is so easy now. I love getting email reminders before my visits!", avatar: "👤" },
               { name: "Admin Team", role: "Hospital Admin", text: "The analytics charts give us a clear picture of hospital performance. Highly recommended!", avatar: "🛡️" },
             ].map((t) => (
@@ -310,7 +310,7 @@ const LandingPage = () => {
         <div className="max-w-3xl mx-auto">
           <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl p-16 shadow-2xl">
             <h2 className="text-4xl font-black text-white mb-4">Ready to Transform Your Hospital?</h2>
-            <p className="text-blue-200 text-lg mb-10">Join thousands of healthcare professionals already using HMS.</p>
+            <p className="text-blue-200 text-lg mb-10">Join thousands of healthcare professionals already using HealSync.</p>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
               <button onClick={() => navigate("/register")}
                 className="bg-white text-blue-700 px-10 py-4 rounded-2xl font-black text-lg hover:shadow-xl hover:scale-105 transition-all duration-300">

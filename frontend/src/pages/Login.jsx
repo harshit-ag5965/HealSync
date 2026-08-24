@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import BASE_URL from "../api";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 import Logo from "../components/Logo";
@@ -19,7 +20,7 @@ const Login = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await axios.post("http://localhost:5000/api/auth/login", formData);
+      const res = await axios.post(`${BASE_URL}/api/auth/login`, formData);
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("role", res.data.role);
       if (res.data.role === "doctor") navigate("/doctor-dashboard");

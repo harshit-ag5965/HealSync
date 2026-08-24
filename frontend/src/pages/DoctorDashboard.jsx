@@ -3,11 +3,13 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import toast from "react-hot-toast";
+import { jsPDF } from "jspdf";
 import useDarkMode from "../hooks/useDarkMode";
 import NotificationBell from "../components/NotificationBell";
 import SearchBar from "../components/SearchBar";
 import Pagination from "../components/Pagination";
 import Logo from "../components/Logo";
+import BASE_URL from "../api";
 
 const DoctorDashboard = () => {
   const [doctor, setDoctor] = useState(null);
@@ -45,37 +47,34 @@ const DoctorDashboard = () => {
   }, []);
 
   const fetchData = async () => {
-  const safe = async (fn) => {
-    try { return await fn(); }
-    catch (e) { console.warn("API failed:", e.config?.url, e.response?.status); return { data: null }; }
+    const safe = async (fn) => {
+      try { return await fn(); }
+      catch (e) { console.warn("API failed:", e.config?.url, e.response?.status); return { data: null }; }
+    };
+
+    try {
+      const decoded = jwtDecode(token);
+      const loggedInUserId = decoded.id;
+
+      const [doctorsRes, appointmentsRes, earningsRes, billsRes] = await Promise.all([
+        safe(() => axios.get(`${BASE_URL}/api/doctors`, config)),
+        safe(() => axios.get(`${BASE_URL}/api/appointments`, config)),
+        safe(() => axios.get(`${BASE_URL}/api/bills/doctor/earnings`, config)),
+        safe(() => axios.get(`${BASE_URL}/api/bills`, config)),
+      ]);
+
+      const allDoctors = Array.isArray(doctorsRes.data) ? doctorsRes.data : [];
+      const myDoctor = allDoctors.find(doc => doc.userId?._id?.toString() === loggedInUserId);
+      setDoctor(myDoctor);
+      if (myDoctor) setEditForm({ name: myDoctor.name || "", phone: myDoctor.phone || "", address: myDoctor.address || "", specialization: myDoctor.specialization || "", experience: myDoctor.experience || "", fees: myDoctor.fees || "" });
+
+      // Backend already filters appointments & bills by doctor role — no client-side filter needed
+      setAppointments(Array.isArray(appointmentsRes.data) ? appointmentsRes.data : []);
+      setEarnings(earningsRes.data || {});
+      setBills(Array.isArray(billsRes.data) ? billsRes.data : []);
+    } catch (error) { console.error(error); }
+    setLoading(false);
   };
-
-  try {
-    const decoded = jwtDecode(token);
-    const loggedInUserId = decoded.id;
-
-    const [doctorsRes, appointmentsRes, earningsRes, billsRes] = await Promise.all([
-      safe(() => axios.get("http://localhost:5000/api/doctors", config)),
-      safe(() => axios.get("http://localhost:5000/api/appointments", config)),
-      safe(() => axios.get("http://localhost:5000/api/bills/doctor/earnings", config)),
-      safe(() => axios.get("http://localhost:5000/api/bills", config)),
-    ]);
-
-    const allDoctors = Array.isArray(doctorsRes.data) ? doctorsRes.data : [];
-    const myDoctor = allDoctors.find(doc => doc.userId?._id?.toString() === loggedInUserId);
-    setDoctor(myDoctor);
-    if (myDoctor) setEditForm({ name: myDoctor.name || "", phone: myDoctor.phone || "", address: myDoctor.address || "", specialization: myDoctor.specialization || "", experience: myDoctor.experience || "", fees: myDoctor.fees || "" });
-
-    const allAppointments = Array.isArray(appointmentsRes.data) ? appointmentsRes.data : [];
-    setAppointments(allAppointments.filter(apt => apt.doctor?._id?.toString() === myDoctor?._id?.toString()));
-
-    setEarnings(earningsRes.data || {});
-
-    const allBills = Array.isArray(billsRes.data) ? billsRes.data : [];
-    setBills(allBills.filter(bill => bill.doctor?._id?.toString() === myDoctor?._id?.toString()));
-  } catch (error) { console.error(error); }
-  setLoading(false);
-};
 
   const myPatients = [...new Map(appointments.map(a => [a.patient?._id, a.patient])).values()].filter(Boolean);
 
@@ -94,7 +93,7 @@ const DoctorDashboard = () => {
 
   const fetchPatientRecords = async (patientId) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/medical-records/patient/${patientId}`, config);
+      const res = await axios.get(`${BASE_URL}/api/medical-records/patient/${patientId}`, config);
       setPatientRecords(Array.isArray(res.data) ? res.data : []);
       setSelectedPatient(patientId);
     } catch (error) { console.error(error); }
@@ -102,7 +101,7 @@ const DoctorDashboard = () => {
 
   const handleUpdateStatus = async (id, status) => {
     try {
-      await axios.put(`http://localhost:5000/api/appointments/${id}`, { status }, config);
+      await axios.put(`${BASE_URL}/api/appointments/${id}`, { status }, config);
       toast.success(`Appointment ${status}!`);
       fetchData();
     } catch { toast.error("Failed to update status"); }
@@ -112,7 +111,7 @@ const DoctorDashboard = () => {
     e.preventDefault();
     setRescheduleMsg("");
     try {
-      await axios.put(`http://localhost:5000/api/appointments/${reschedulingId}`,
+      await axios.put(`${BASE_URL}/api/appointments/${reschedulingId}`,
         { date: rescheduleData.date, time: rescheduleData.time }, config);
       toast.success("Rescheduled successfully!");
       setRescheduleMsg("✅ Rescheduled successfully!");
@@ -125,7 +124,7 @@ const DoctorDashboard = () => {
     e.preventDefault();
     setEditMsg("");
     try {
-      await axios.put(`http://localhost:5000/api/doctors/${doctor._id}`, editForm, config);
+      await axios.put(`${BASE_URL}/api/doctors/${doctor._id}`, editForm, config);
       toast.success("Profile updated!");
       setEditMsg("✅ Profile updated!");
       fetchData();
@@ -133,12 +132,11 @@ const DoctorDashboard = () => {
   };
 
   const handleDownloadPDF = (bill) => {
-    const { jsPDF } = require("jspdf");
     const doc = new jsPDF();
     doc.setFillColor(21, 128, 61); doc.rect(0, 0, 210, 40, "F");
     doc.setTextColor(255, 255, 255); doc.setFontSize(22);
     doc.text("HealSync", 105, 18, { align: "center" });
-    doc.setFontSize(12); doc.text("HealSync", 105, 30, { align: "center" });
+    doc.setFontSize(12); doc.text("HealSync Hospital", 105, 30, { align: "center" });
     doc.setTextColor(0, 0, 0); doc.setFontSize(18);
     doc.text("BILL / INVOICE", 105, 55, { align: "center" });
     doc.setFontSize(11); doc.setTextColor(100, 100, 100);
@@ -161,7 +159,7 @@ const DoctorDashboard = () => {
     doc.setFontSize(16); doc.setTextColor(22, 163, 74); doc.text(`Rs. ${bill.amount}`, 165, 167, { align: "right" });
     doc.setFillColor(21, 128, 61); doc.rect(0, 270, 210, 30, "F");
     doc.setTextColor(255, 255, 255); doc.setFontSize(10);
-    doc.text("Thank you for choosing  HealSync!", 105, 282, { align: "center" });
+    doc.text("Thank you for choosing HealSync!", 105, 282, { align: "center" });
     doc.text("For queries: support@healsync.com", 105, 290, { align: "center" });
     doc.save(`HealSync_Bill_${bill._id}.pdf`);
   };

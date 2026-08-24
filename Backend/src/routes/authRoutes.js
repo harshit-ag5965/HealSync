@@ -6,7 +6,7 @@ const {
   forgotPassword,
   resetPassword,
 } = require("../controllers/authController");
-const { protect } = require("../middleware/authMiddleware");
+const { protect, adminOnly } = require("../middleware/authMiddleware");
 const User = require("../models/User");
 
 router.post("/register", register);
@@ -33,7 +33,7 @@ router.get("/me", protect, async (req, res) => {
 });
 
 // GET all users - Admin only
-router.get("/users", protect, async (req, res) => {
+router.get("/users", protect, adminOnly, async (req, res) => {
   try {
     const users = await User.find().select("-password");
     res.status(200).json(users);
@@ -43,7 +43,7 @@ router.get("/users", protect, async (req, res) => {
 });
 
 // DELETE user by ID - Admin only
-router.delete("/users/:id", protect, async (req, res) => {
+router.delete("/users/:id", protect, adminOnly, async (req, res) => {
   try {
     const User = require("../models/User");
     const Patient = require("../models/Patient");

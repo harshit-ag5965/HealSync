@@ -37,7 +37,6 @@ const bookAppointment = async (req, res) => {
         message: `Your appointment with ${populated.doctor?.name} on ${date} at ${time} has been booked.`,
         type: "booked",
       });
-      console.log("Notification sent to patient:", userDoc._id); // Debugging line
     }
 
     // Notify doctor
@@ -49,23 +48,21 @@ const bookAppointment = async (req, res) => {
         type: "booked",
       });
     }
-    console.log("Notifications sent to patient and doctor."); // Debugging line
 
     // Notify admins
     await notifyAdmins(
       `New appointment booked — Patient: ${populated.patient?.name}, Doctor: ${populated.doctor?.name}, Date: ${date}.`,
       "booked"
     );
-    console.log("Notifications sent to admins."); // Debugging line
 
     if (userDoc?.email) {
       await sendEmail({
         to: userDoc.email,
-        subject: "✅ Appointment Booked — HMS Hospital",
+        subject: "✅ Appointment Booked — HealSync",
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
             <div style="background-color: #1d4ed8; padding: 20px; text-align: center;">
-              <h1 style="color: white; margin: 0; font-size: 22px;">🏥 HMS Hospital</h1>
+              <h1 style="color: white; margin: 0; font-size: 22px;">🏥 HealSync</h1>
             </div>
             <div style="padding: 24px;">
               <h2 style="color: #1d4ed8;">Appointment Booked!</h2>
@@ -91,13 +88,12 @@ const bookAppointment = async (req, res) => {
                 ${notes ? `<tr style="background: #eff6ff;"><td style="padding: 10px; font-weight: bold; color: #1d4ed8;">Notes</td><td style="padding: 10px; color: #374151;">${notes}</td></tr>` : ""}
               </table>
               <p style="color: #6b7280; font-size: 13px;">Please arrive 10 minutes early.</p>
-              <p style="color: #374151;">Thank you for choosing HMS Hospital! 💙</p>
+              <p style="color: #374151;">Thank you for choosing HealSync! 💙</p>
             </div>
           </div>
         `,
       });
     }
-    console.log("last line:", userDoc?.email); // Debugging line
 
     res.status(201).json({ message: "Appointment booked", appointment });
   } catch (error) {
@@ -106,12 +102,29 @@ const bookAppointment = async (req, res) => {
   }
 };
 
-// Get all appointments
+// Get appointments — filtered by role
 const getAllAppointments = async (req, res) => {
   try {
-    const appointments = await Appointment.find()
+    let filter = {};
+
+    if (req.user.role === "doctor") {
+      // Find the doctor profile for this user and filter by their doctor ID
+      const doctorDoc = await Doctor.findOne({ userId: req.user._id });
+      if (!doctorDoc) return res.status(200).json([]);
+      filter.doctor = doctorDoc._id;
+
+    } else if (req.user.role === "patient") {
+      // Find the patient profile for this user and filter by their patient ID
+      const patientDoc = await Patient.findOne({ user: req.user._id });
+      if (!patientDoc) return res.status(200).json([]);
+      filter.patient = patientDoc._id;
+    }
+    // Admin: filter stays empty — sees all appointments
+
+    const appointments = await Appointment.find(filter)
       .populate("patient", "name phone age")
       .populate("doctor", "name specialization fees");
+
     res.status(200).json(appointments);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -137,10 +150,18 @@ const getAppointmentById = async (req, res) => {
 // Update appointment status
 const updateAppointment = async (req, res) => {
   try {
+    // Whitelist only allowed fields — prevents mass assignment of patient/doctor refs
+    const { status, date, time, notes } = req.body;
+    const allowedUpdates = {};
+    if (status !== undefined) allowedUpdates.status = status;
+    if (date !== undefined)   allowedUpdates.date   = date;
+    if (time !== undefined)   allowedUpdates.time   = time;
+    if (notes !== undefined)  allowedUpdates.notes  = notes;
+
     const appointment = await Appointment.findByIdAndUpdate(
       req.params.id,
-      req.body,
-      { new: true }
+      allowedUpdates,
+      { new: true, runValidators: true }
     ).populate("patient", "name")
      .populate("doctor", "name specialization");
 
@@ -178,11 +199,11 @@ const updateAppointment = async (req, res) => {
       if (userDoc?.email) {
         await sendEmail({
           to: userDoc.email,
-          subject: "📅 Appointment Confirmed — HMS Hospital",
+          subject: "📅 Appointment Confirmed — HealSync",
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
               <div style="background-color: #2563eb; padding: 20px; text-align: center;">
-                <h1 style="color: white; margin: 0; font-size: 22px;">🏥 HMS Hospital</h1>
+                <h1 style="color: white; margin: 0; font-size: 22px;">🏥 HealSync</h1>
               </div>
               <div style="padding: 24px;">
                 <h2 style="color: #2563eb;">Your Appointment is Confirmed!</h2>
@@ -242,11 +263,11 @@ const updateAppointment = async (req, res) => {
       if (userDoc?.email) {
         await sendEmail({
           to: userDoc.email,
-          subject: "❌ Appointment Cancelled — HMS Hospital",
+          subject: "❌ Appointment Cancelled — HealSync",
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
               <div style="background-color: #dc2626; padding: 20px; text-align: center;">
-                <h1 style="color: white; margin: 0; font-size: 22px;">🏥 HMS Hospital</h1>
+                <h1 style="color: white; margin: 0; font-size: 22px;">🏥 HealSync</h1>
               </div>
               <div style="padding: 24px;">
                 <h2 style="color: #dc2626;">Appointment Cancelled</h2>
@@ -318,11 +339,11 @@ const updateAppointment = async (req, res) => {
         if (userDoc?.email) {
           await sendEmail({
             to: userDoc.email,
-            subject: "✅ Appointment Completed — HMS Hospital",
+            subject: "✅ Appointment Completed — HealSync",
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
                 <div style="background-color: #16a34a; padding: 20px; text-align: center;">
-                  <h1 style="color: white; margin: 0; font-size: 22px;">🏥 HMS Hospital</h1>
+                  <h1 style="color: white; margin: 0; font-size: 22px;">🏥 HealSync</h1>
                 </div>
                 <div style="padding: 24px;">
                   <h2 style="color: #16a34a;">Appointment Completed!</h2>
@@ -378,11 +399,11 @@ const updateAppointment = async (req, res) => {
       if (userDoc?.email) {
         await sendEmail({
           to: userDoc.email,
-          subject: "📅 Appointment Rescheduled — HMS Hospital",
+          subject: "📅 Appointment Rescheduled — HealSync",
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
               <div style="background-color: #7c3aed; padding: 20px; text-align: center;">
-                <h1 style="color: white; margin: 0; font-size: 22px;">🏥 HMS Hospital</h1>
+                <h1 style="color: white; margin: 0; font-size: 22px;">🏥 HealSync</h1>
               </div>
               <div style="padding: 24px;">
                 <h2 style="color: #7c3aed;">Appointment Rescheduled!</h2>
@@ -403,7 +424,7 @@ const updateAppointment = async (req, res) => {
                   </tr>
                 </table>
                 <p style="color: #6b7280; font-size: 13px;">Please arrive 10 minutes early.</p>
-                <p style="color: #374151;">Thank you for choosing HMS Hospital! 💙</p>
+                <p style="color: #374151;">Thank you for choosing HealSync! 💙</p>
               </div>
             </div>
           `,
@@ -456,11 +477,11 @@ const deleteAppointment = async (req, res) => {
     if (userDoc?.email) {
       await sendEmail({
         to: userDoc.email,
-        subject: "❌ Appointment Cancelled — HMS Hospital",
+        subject: "❌ Appointment Cancelled — HealSync",
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
             <div style="background-color: #dc2626; padding: 20px; text-align: center;">
-              <h1 style="color: white; margin: 0; font-size: 22px;">🏥 HMS Hospital</h1>
+              <h1 style="color: white; margin: 0; font-size: 22px;">🏥 HealSync</h1>
             </div>
             <div style="padding: 24px;">
               <h2 style="color: #dc2626;">Appointment Cancelled</h2>

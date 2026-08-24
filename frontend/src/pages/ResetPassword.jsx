@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
+import BASE_URL from "../api";
 import axios from "axios";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import Logo from "../components/Logo"; // Import your custom logo
@@ -22,7 +23,7 @@ const ResetPassword = () => {
     setError("");
     try {
       const res = await axios.post(
-        `http://localhost:5000/api/auth/reset-password/${token}`,
+        `${BASE_URL}/api/auth/reset-password/${token}`,
         { password }
       );
       setMessage(res.data.message);
