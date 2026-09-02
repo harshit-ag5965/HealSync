@@ -28,15 +28,6 @@ A full-stack **Hospital Management System** with role-based dashboards for **Adm
 | Service | URL |
 |---|---|
 | 🖥️ Frontend | [heal-sync-ivory.vercel.app](https://heal-sync-ivory.vercel.app) |
-| ⚙️ Backend API | [healsync-vsui.onrender.com](https://healsync-vsui.onrender.com) |
-
-### Demo Credentials
-
-| Role | Email | Password |
-|---|---|---|
-| Admin | `admin@hospital.com` | `admin123` |
-| Doctor | `doctor@hospital.com` | `doctor123` |
-| Patient | Register a new account | — |
 
 ---
 
