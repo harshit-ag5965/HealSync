@@ -114,11 +114,12 @@ const PatientDashboard = () => {
   const config = { headers: { Authorization: `Bearer ${token}` } };
   const { darkMode, toggleDarkMode } = useDarkMode();
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     if (!token) { navigate("/login"); return; }
     fetchData();
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const fetchData = async () => {
     try {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import BASE_URL from "../api";
 import axios from "axios";
 
@@ -9,21 +9,22 @@ const NotificationBell = ({ token }) => {
 
   const config = { headers: { Authorization: `Bearer ${token}` } };
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       const res = await axios.get(`${BASE_URL}/api/notifications`, config);
       setNotifications(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       console.error(error);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   useEffect(() => {
     fetchNotifications();
     // Poll every 30 seconds for new notifications
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchNotifications]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
